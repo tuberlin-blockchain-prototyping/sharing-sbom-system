@@ -33,16 +33,18 @@ if [ -z "$SBOM_HASH" ]; then
   LIST_SCRIPT=$(mktemp)
   cat > "$LIST_SCRIPT" << 'EOF'
 const { ethers } = require("ethers");
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "http://localhost:8545");
-const contract = new ethers.Contract(process.env.CONTRACT_ADDR, ["function listHashes() external view returns (bytes32[])"], provider);
-const hashes = await contract.listHashes();
-if (hashes.length === 0) {
-  console.log("No SBOM hashes found.");
-  process.exit(0);
-}
-console.log(`Found ${hashes.length} SBOM hash(es):\n`);
-hashes.forEach((h, i) => console.log(`${i + 1}. ${h.replace(/^0x/, '').toLowerCase()}`));
-console.log(`\nUsage: $0 ${hashes[0].replace(/^0x/, '').toLowerCase()}`);
+(async () => {
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "http://localhost:8545");
+  const contract = new ethers.Contract(process.env.CONTRACT_ADDR, ["function listHashes() external view returns (bytes32[])"], provider);
+  const hashes = await contract.listHashes();
+  if (hashes.length === 0) {
+    console.log("No SBOM hashes found.");
+    process.exit(0);
+  }
+  console.log(`Found ${hashes.length} SBOM hash(es):\n`);
+  hashes.forEach((h, i) => console.log(`${i + 1}. ${h.replace(/^0x/, '').toLowerCase()}`));
+  console.log(`\nUsage: $0 ${hashes[0].replace(/^0x/, '').toLowerCase()}`);
+})();
 EOF
   kubectl cp "$LIST_SCRIPT" "blockchain/$HARDHAT_POD:/workspace/list.js" >/dev/null 2>&1
   kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && RPC_URL='$RPC_URL' CONTRACT_ADDR='$CONTRACT_ADDR' node list.js"
@@ -58,29 +60,31 @@ echo "Verifying SBOM: $SBOM_HASH"
 QUERY_SCRIPT=$(mktemp)
 cat > "$QUERY_SCRIPT" << 'EOF'
 const { ethers } = require("ethers");
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "http://localhost:8545");
-const abi = [
-  "function getSBOM(bytes32 hash) external view returns (tuple(bytes32 hash, bytes32 softwareDigest, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, uint256 timestamp, address submitter))",
-  "function exists(bytes32 hash) external view returns (bool)"
-];
-const contract = new ethers.Contract(process.env.CONTRACT_ADDR, abi, provider);
-const hashBytes32 = "0x" + process.env.SBOM_HASH;
-if (!(await contract.exists(hashBytes32))) {
-  console.error("ERROR: SBOM hash not found");
-  process.exit(1);
-}
-const entry = await contract.getSBOM(hashBytes32);
-console.log(JSON.stringify({
-  hash: entry.hash,
-  softwareDigest: entry.softwareDigest,
-  identifier: entry.identifier,
-  imageId: entry.imageId,
-  ipfsCid: entry.ipfsCid,
-  isValid: entry.isValid,
-  bannedListHash: entry.bannedListHash,
-  timestamp: entry.timestamp.toString(),
-  submitter: entry.submitter
-}));
+(async () => {
+  const provider = new ethers.JsonRpcProvider(process.env.RPC_URL || "http://localhost:8545");
+  const abi = [
+    "function getSBOM(bytes32 hash) external view returns (tuple(bytes32 hash, bytes32 softwareDigest, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, uint256 timestamp, address submitter))",
+    "function exists(bytes32 hash) external view returns (bool)"
+  ];
+  const contract = new ethers.Contract(process.env.CONTRACT_ADDR, abi, provider);
+  const hashBytes32 = "0x" + process.env.SBOM_HASH;
+  if (!(await contract.exists(hashBytes32))) {
+    console.error("ERROR: SBOM hash not found");
+    process.exit(1);
+  }
+  const entry = await contract.getSBOM(hashBytes32);
+  console.log(JSON.stringify({
+    hash: entry.hash,
+    softwareDigest: entry.softwareDigest,
+    identifier: entry.identifier,
+    imageId: entry.imageId,
+    ipfsCid: entry.ipfsCid,
+    isValid: entry.isValid,
+    bannedListHash: entry.bannedListHash,
+    timestamp: entry.timestamp.toString(),
+    submitter: entry.submitter
+  }));
+})();
 EOF
 
 kubectl cp "$QUERY_SCRIPT" "blockchain/$HARDHAT_POD:/workspace/query.js" >/dev/null 2>&1

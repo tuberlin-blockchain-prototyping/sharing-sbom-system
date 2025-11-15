@@ -11,9 +11,7 @@ on:
       - 'verifier-service/**'
       - 'ipfs-service/**'
       - '.github/workflows/deploy-microservices.yaml'
-
-on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
 
 jobs:
   build-and-update-microservices:

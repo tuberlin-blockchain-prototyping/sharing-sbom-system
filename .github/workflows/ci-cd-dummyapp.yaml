@@ -147,8 +147,6 @@ jobs:
       - name: Create SBOM for proving
         id: locate
         run: |
-
-          echo "Creating hardcoded SBOM for proving service (with unique run ID)..."
           RUN_ID="${{ github.run_id }}"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           cat > sbom.json << EOF
@@ -182,9 +180,7 @@ jobs:
             ]
           }
           EOF
-          echo "Run ID: ${RUN_ID}, Timestamp: ${TIMESTAMP}"
           echo "sbom_file=sbom.json" >> $GITHUB_OUTPUT
-          [ ! -f "banned_list.txt" ] && { echo "ERROR: banned_list.txt not found"; exit 1; }
 
       - name: Install kubectl
         run: |
@@ -208,6 +204,7 @@ jobs:
           PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
           SBOM_FILE="${{ steps.locate.outputs.sbom_file }}"
           [ ! -f "$SBOM_FILE" ] && { echo "ERROR: SBOM file not found"; exit 1; }
+          [ ! -f "banned_list.txt" ] && { echo "ERROR: banned_list.txt not found"; exit 1; }
           
           BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
           jq -n --slurpfile sbom "$SBOM_FILE" --argjson banned_list "$BANNED_LIST" '{sbom: $sbom[0], banned_list: $banned_list}' > request_payload.json
