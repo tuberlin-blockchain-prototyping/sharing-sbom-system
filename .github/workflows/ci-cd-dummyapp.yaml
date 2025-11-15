@@ -55,6 +55,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Create sboms directory
+        run: mkdir -p sboms
+
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
         with:
