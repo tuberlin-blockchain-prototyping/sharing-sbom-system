@@ -189,6 +189,28 @@ jobs:
           kubectl get pods -n sharing-sbom-system -l app=proving-service || true
           echo "Checking service endpoint..."
           kubectl get svc proving-service -n sharing-sbom-system || true
+          
+          echo "Waiting for service to be fully ready and DNS to resolve..."
+          PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
+          MAX_RETRIES=30
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -s --max-time 5 "$PROVING_SERVICE_URL/health" > /dev/null 2>&1; then
+              echo "✓ Service is reachable after $RETRY_COUNT retries"
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Waiting for service... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+            sleep 2
+          done
+          
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "WARNING: Service health check failed after $MAX_RETRIES attempts"
+            echo "Checking pod status..."
+            kubectl get pods -n sharing-sbom-system -l app=proving-service || true
+            kubectl logs -n sharing-sbom-system -l app=proving-service --tail=20 || true
+          fi
 
       - name: Call proving-service to generate proof
         id: prove
@@ -214,33 +236,50 @@ jobs:
           echo "Request payload size: $(wc -c < request_payload.json) bytes"
           echo "Calling proving-service at $PROVING_SERVICE_URL/prove..."
           
-          # Test connectivity first
-          echo "Testing connectivity to proving-service..."
-          if ! curl -s --max-time 5 "$PROVING_SERVICE_URL/health" > /dev/null; then
-            echo "ERROR: Cannot reach proving-service health endpoint"
-            echo "Checking service and pods..."
-            kubectl get svc proving-service -n sharing-sbom-system || true
-            kubectl get pods -n sharing-sbom-system -l app=proving-service || true
-            exit 1
+          # Service should already be ready from previous step, but verify once more
+          echo "Verifying service connectivity..."
+          if ! curl -s --max-time 10 "$PROVING_SERVICE_URL/health" > /dev/null 2>&1; then
+            echo "WARNING: Health check failed, but proceeding with proof generation..."
+            echo "Service might be slow to respond, but should handle the request"
+          else
+            echo "✓ Service connectivity confirmed"
           fi
           
-          RESPONSE=$(curl -v -X POST "$PROVING_SERVICE_URL/prove" \
+          echo "Sending proof generation request (this may take 10-30 minutes for large SBOMs)..."
+          echo "Monitoring service logs in background..."
+          
+          # Start monitoring logs in background
+          kubectl logs -n sharing-sbom-system -l app=proving-service -f --tail=0 2>&1 | grep --line-buffered -E "(Proof generated|Failed|Error|error|Generating proof)" &
+          LOGS_PID=$!
+          
+          # Send request with very long timeout (30 minutes)
+          RESPONSE=$(curl -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
             --data-binary @request_payload.json \
-            --max-time 600 \
+            --max-time 1800 \
+            --connect-timeout 30 \
+            --no-buffer \
             -w "\nHTTP Status: %{http_code}\n" 2>&1)
           
+          # Stop log monitoring
+          kill $LOGS_PID 2>/dev/null || true
+          sleep 1
+          
           HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP Status:" | awk '{print $3}')
-          RESPONSE_BODY=$(echo "$RESPONSE" | sed '/^HTTP Status:/d' | sed '/^[<*]/d')
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '/^HTTP Status:/d' | sed '/^[<*]/d' | sed '/^Handling connection/d')
           
           echo "HTTP Status Code: $HTTP_CODE"
           
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "ERROR: Proving service returned non-200 status code"
-            echo "Full response:"
-            echo "$RESPONSE"
+          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Proving service returned non-200 status code or connection failed"
+            echo "Exit code: $?"
+            echo "Response preview (first 500 chars):"
+            echo "$RESPONSE" | head -c 500
+            echo ""
             echo "Checking service logs..."
             kubectl logs -n sharing-sbom-system -l app=proving-service --tail=50 || true
+            echo "Checking if proof generation is still in progress..."
+            kubectl get pods -n sharing-sbom-system -l app=proving-service || true
             exit 1
           fi
           
