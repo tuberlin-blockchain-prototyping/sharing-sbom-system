@@ -206,19 +206,32 @@ jobs:
             '{sbom: $sbom[0], banned_list: $banned_list}' > request_payload.json
           
           echo "Request payload size: $(wc -c < request_payload.json) bytes"
-          echo "Calling proving-service..."
+          echo "Calling proving-service at $PROVING_SERVICE_URL/prove..."
           
-          RESPONSE=$(curl -s -X POST "$PROVING_SERVICE_URL/prove" \
+          RESPONSE=$(curl -v -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
-            --data-binary @request_payload.json)
+            --data-binary @request_payload.json \
+            -w "\nHTTP Status: %{http_code}\n" 2>&1)
           
-          echo "$RESPONSE" | jq .
+          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP Status:" | awk '{print $3}')
+          RESPONSE_BODY=$(echo "$RESPONSE" | sed '/^HTTP Status:/d' | sed '/^[<*]/d')
           
-          PROOF=$(echo "$RESPONSE" | jq -r '.proof')
-          SBOM_HASH=$(echo "$RESPONSE" | jq -r '.sbom_hash')
-          IMAGE_ID=$(echo "$RESPONSE" | jq -r '.image_id | join(",")')
-          IS_VALID=$(echo "$RESPONSE" | jq -r '.proof_info.is_valid')
-          BANNED_LIST_HASH=$(echo "$RESPONSE" | jq -r '.proof_info.banned_list_info.hash')
+          echo "HTTP Status Code: $HTTP_CODE"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "ERROR: Proving service returned non-200 status code"
+            echo "Response:"
+            echo "$RESPONSE_BODY"
+            exit 1
+          fi
+          
+          echo "$RESPONSE_BODY" | jq .
+          
+          PROOF=$(echo "$RESPONSE_BODY" | jq -r '.proof')
+          SBOM_HASH=$(echo "$RESPONSE_BODY" | jq -r '.sbom_hash')
+          IMAGE_ID=$(echo "$RESPONSE_BODY" | jq -r '.image_id | join(",")')
+          IS_VALID=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.is_valid')
+          BANNED_LIST_HASH=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.banned_list_info.hash')
           
           echo "proof=$PROOF" >> $GITHUB_OUTPUT
           echo "sbom_hash=$SBOM_HASH" >> $GITHUB_OUTPUT
@@ -226,7 +239,7 @@ jobs:
           echo "is_valid=$IS_VALID" >> $GITHUB_OUTPUT
           echo "banned_list_hash=$BANNED_LIST_HASH" >> $GITHUB_OUTPUT
           
-          echo "$RESPONSE" | jq . > proof_info.json
+          echo "$RESPONSE_BODY" | jq . > proof_info.json
 
       - name: Store proof on IPFS
         id: ipfs

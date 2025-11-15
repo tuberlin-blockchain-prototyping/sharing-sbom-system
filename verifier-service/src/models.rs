@@ -21,7 +21,6 @@ pub struct VerifyRequest {
 
 #[derive(Serialize)]
 pub struct VerifyResponse {
-    pub valid: bool,
     pub sbom_hash: String,
     pub is_valid: bool,
     pub banned_list_info: Option<BannedListInfo>,

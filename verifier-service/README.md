@@ -36,7 +36,6 @@ Verify a ZKP proof.
 **Response (success):**
 ```json
 {
-  "valid": true,
   "sbom_hash": "<64-char-hex-hash>",
   "is_valid": true,
   "banned_list_info": {

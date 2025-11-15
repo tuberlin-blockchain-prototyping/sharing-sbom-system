@@ -28,7 +28,6 @@ pub async fn verify(req: web::Json<VerifyRequest>) -> ActixResult<HttpResponse> 
         .map_err(|e| actix_web::error::ErrorBadRequest(format!("Failed to decode output: {}", e)))?;
 
     let response = VerifyResponse {
-        valid: true,
         sbom_hash: hex::encode(output.sbom_hash),
         is_valid: output.is_valid,
         banned_list_info: Some(output.banned_list_info),
