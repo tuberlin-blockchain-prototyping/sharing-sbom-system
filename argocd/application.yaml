@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/tuberlin-blockchain-prototyping/sharing-sbom-system.git
     targetRevision: main
-    path: k8s
+    path: k8s/sharing-sbom-system
   destination:
     server: https://kubernetes.default.svc
     namespace: sharing-sbom-system

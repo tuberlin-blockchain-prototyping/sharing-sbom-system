@@ -62,7 +62,18 @@ data:
 
 **Important**: The `RUNNER_LABELS` must match the `runs-on` labels in your GitHub Actions workflows (e.g., `runs-on: [self-hosted, kind-cluster, blockchain]`).
 
-### 3. Create GitHub Runner Secret
+### 3. Setup Blockchain and GitHub Runner
+
+```bash
+./scripts/setup-blockchain-runner.sh
+```
+
+This will:
+- Deploy Hardhat node to the `blockchain` namespace
+- Auto-deploy SBOMRegistry contract (address: `0x5FbDB2315678afecb367f032d93F642f64180aa3`)
+- Deploy GitHub Actions runner (will wait for secret if not present)
+
+### 4. Create GitHub Runner Secret
 
 After the namespace is created, create the GitHub Personal Access Token (PAT) secret:
 
@@ -74,16 +85,6 @@ kubectl create secret generic github-runner-secret \
 
 Get a token from: https://github.com/settings/tokens/new (needs `repo` and `workflow` scopes)
 
-### 4. Setup Blockchain and GitHub Runner
-
-```bash
-./scripts/setup-blockchain-runner.sh
-```
-
-This will:
-- Deploy Hardhat node to the `blockchain` namespace
-- Auto-deploy SBOMRegistry contract (address: `0x5FbDB2315678afecb367f032d93F642f64180aa3`)
-- Deploy GitHub Actions runner (will wait for secret if not present)
 
 ## CI/CD Workflow
 
