@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  DOCKER_IMAGE: sharing-sbom-system/app
-
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
@@ -32,7 +29,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_IMAGE }}
+          images: ${{ secrets.DOCKER_USERNAME }}/sharing-sbom-system-app
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -56,7 +53,7 @@ jobs:
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.tags }}
+          image: ${{ secrets.DOCKER_USERNAME }}/sharing-sbom-system-app:${{ steps.meta.outputs.tags }}
           format: cyclonedx-json
           output-file: sboms/app.json
 
@@ -232,7 +229,7 @@ jobs:
           RPC_URL="http://hardhat-node.blockchain.svc.cluster.local:8545"
           CONTRACT_ADDR="0x5FbDB2315678afecb367f032d93F642f64180aa3"
           SBOM_HASH="${{ steps.prove.outputs.sbom_hash }}"
-          IMAGE_NAME="${{ env.DOCKER_IMAGE }}:${{ needs.build-and-scan.outputs.image_tag }}"
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/sharing-sbom-system-app:${{ needs.build-and-scan.outputs.image_tag }}"
           IDENTIFIER="github-ci-${{ github.run_id }}"
           IMAGE_ID="${{ steps.prove.outputs.image_id }}"
           IPFS_CID="${{ steps.ipfs.outputs.ipfs_cid }}"
