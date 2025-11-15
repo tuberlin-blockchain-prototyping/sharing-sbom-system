@@ -271,45 +271,37 @@ jobs:
           fi
           
           echo "Sending proof generation request (this may take 10-30 minutes for large SBOMs)..."
-          echo "Monitoring service logs in background..."
           
-          # Start monitoring logs in background
-          kubectl logs -n sharing-sbom-system -l app=proving-service -f --tail=0 2>&1 | grep --line-buffered -E "(Proof generated|Failed|Error|error|Generating proof)" &
-          LOGS_PID=$!
+          RESPONSE_FILE=$(mktemp)
+          HTTP_CODE_FILE=$(mktemp)
           
-          # Send request with very long timeout (30 minutes)
-          # Use --no-keepalive to avoid connection issues, and increase buffer
-          RESPONSE=$(timeout 1800 curl -X POST "$PROVING_SERVICE_URL/prove" \
+          curl -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
             --data-binary @request_payload.json \
             --max-time 1800 \
             --connect-timeout 30 \
-            --keepalive-time 300 \
-            --buffer \
-            -w "\nHTTP Status: %{http_code}\n" 2>&1 || echo "CURL_EXIT_CODE:$?")
+            --write-out "%{http_code}" \
+            --output "$RESPONSE_FILE" \
+            --silent \
+            --show-error > "$HTTP_CODE_FILE" 2>&1
           
-          # Stop log monitoring
-          kill $LOGS_PID 2>/dev/null || true
-          sleep 1
-          
-          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP Status:" | awk '{print $3}')
-          RESPONSE_BODY=$(echo "$RESPONSE" | sed '/^HTTP Status:/d' | sed '/^[<*]/d' | sed '/^Handling connection/d')
-          
+          HTTP_CODE=$(cat "$HTTP_CODE_FILE")
           echo "HTTP Status Code: $HTTP_CODE"
           
           if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" != "200" ]; then
             echo "ERROR: Proving service returned non-200 status code or connection failed"
-            echo "Exit code: $?"
             echo "Response preview (first 500 chars):"
-            echo "$RESPONSE" | head -c 500
+            head -c 500 "$RESPONSE_FILE" || true
             echo ""
             echo "Checking service logs..."
             kubectl logs -n sharing-sbom-system -l app=proving-service --tail=50 || true
             echo "Checking if proof generation is still in progress..."
             kubectl get pods -n sharing-sbom-system -l app=proving-service || true
+            rm -f "$RESPONSE_FILE" "$HTTP_CODE_FILE"
             exit 1
           fi
           
+          RESPONSE_BODY=$(cat "$RESPONSE_FILE")
           echo "$RESPONSE_BODY" | jq .
           
           PROOF=$(echo "$RESPONSE_BODY" | jq -r '.proof')
@@ -325,6 +317,7 @@ jobs:
           echo "banned_list_hash=$BANNED_LIST_HASH" >> $GITHUB_OUTPUT
           
           echo "$RESPONSE_BODY" | jq . > proof_info.json
+          rm -f "$RESPONSE_FILE" "$HTTP_CODE_FILE"
 
       - name: Store proof on IPFS
         id: ipfs
