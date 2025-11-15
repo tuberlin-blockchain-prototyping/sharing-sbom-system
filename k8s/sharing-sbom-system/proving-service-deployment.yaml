@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
       - name: proving-service
-        image: proving-service:latest
-        imagePullPolicy: Never
+        image: acbdockeracc/proving-service:6a978bf
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
           name: http
