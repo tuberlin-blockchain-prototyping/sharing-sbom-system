@@ -2,6 +2,7 @@ name: CI/CD Dummyapp
 
 # Builds a dummy application, generates SBOM, and creates ZKP proof
 # Uses the deployed microservices to validate and store the proof
+# Note: dummyapp2 has minimal dependencies for faster proof generation
 
 on:
   push:
@@ -45,8 +46,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: ./dummyapp
-          file: ./dummyapp/Dockerfile
+          context: ./dummyapp2
+          file: ./dummyapp2/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
