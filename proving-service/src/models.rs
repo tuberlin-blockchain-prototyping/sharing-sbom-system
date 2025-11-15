@@ -17,6 +17,7 @@ pub struct PublicInputs {
 #[derive(Serialize, Deserialize)]
 pub struct PublicOutputs {
     pub sbom_hash: [u8; 32],
+    pub components_hash: [u8; 32],
     pub is_valid: bool,
     pub banned_list_info: BannedListInfo,
 }

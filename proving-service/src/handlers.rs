@@ -4,7 +4,7 @@ use methods::{SBOM_VALIDATOR_ELF, SBOM_VALIDATOR_ID};
 use risc0_zkvm::{default_prover, serde::to_vec, ExecutorEnv};
 
 use crate::models::{BannedListInfo, ProveRequest, ProveResponse, PublicInputs, PublicOutputs};
-use crate::utils::{compute_banned_list_hash, compute_hash};
+use crate::utils::{compute_banned_list_hash, compute_hash, extract_components_json};
 
 pub async fn health() -> ActixResult<HttpResponse> {
     Ok(HttpResponse::Ok().json(serde_json::json!({"status": "healthy"})))
@@ -18,6 +18,18 @@ pub async fn prove(req: web::Json<ProveRequest>) -> ActixResult<HttpResponse> {
 
     let banned_list = &req.banned_list;
     let sbom_hash = compute_hash(&sbom_json);
+
+    let components_json = extract_components_json(&req.sbom)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!("Failed to extract components: {}", e)))?;
+    
+    let components_size = components_json.len();
+    let full_size = sbom_json.len();
+    tracing::info!(
+        "Pre-extracted components: {} bytes (reduced from {} bytes, {:.1}% reduction)",
+        components_size,
+        full_size,
+        100.0 * (1.0 - components_size as f64 / full_size as f64)
+    );
 
     let banned_list_info = BannedListInfo {
         source: "CVE Database".to_string(),
@@ -34,6 +46,8 @@ pub async fn prove(req: web::Json<ProveRequest>) -> ActixResult<HttpResponse> {
     let env = ExecutorEnv::builder()
         .write(&sbom_json)
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write SBOM: {}", e)))?
+        .write(&components_json)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write components: {}", e)))?
         .write(&public_inputs)
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write inputs: {}", e)))?
         .build()
