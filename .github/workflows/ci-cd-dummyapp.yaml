@@ -195,15 +195,19 @@ jobs:
             exit 1
           fi
           
-          SBOM_JSON=$(cat "$SBOM_FILE")
+          echo "SBOM file size: $(wc -c < "$SBOM_FILE") bytes"
+          echo "Preparing request payload..."
+          
           BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
           
           REQUEST_PAYLOAD=$(jq -n \
-            --argjson sbom "$SBOM_JSON" \
+            --slurpfile sbom "$SBOM_FILE" \
             --argjson banned_list "$BANNED_LIST" \
-            '{sbom: $sbom, banned_list: $banned_list}')
+            '{sbom: $sbom[0], banned_list: $banned_list}')
           
-          echo "Calling proving-service with SBOM and banned list..."
+          echo "Request payload size: $(echo "$REQUEST_PAYLOAD" | wc -c) bytes"
+          echo "Calling proving-service..."
+          
           RESPONSE=$(curl -s -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
             -d "$REQUEST_PAYLOAD")

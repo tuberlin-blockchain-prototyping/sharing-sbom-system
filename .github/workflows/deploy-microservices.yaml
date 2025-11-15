@@ -3,14 +3,17 @@ name: Deploy Microservices
 # Builds and deploys the microservices (proving-service, verifier-service, ipfs-service)
 # Updates Kubernetes manifests so ArgoCD can deploy the new versions
 
+# on:
+#   push:
+#     branches: [main]
+#     paths:
+#       - 'proving-service/**'
+#       - 'verifier-service/**'
+#       - 'ipfs-service/**'
+#       - '.github/workflows/deploy-microservices.yaml'
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'proving-service/**'
-      - 'verifier-service/**'
-      - 'ipfs-service/**'
-      - '.github/workflows/deploy-microservices.yaml'
+  workflow_dispatch:  # Manual trigger only
 
 jobs:
   build-and-update-microservices:
