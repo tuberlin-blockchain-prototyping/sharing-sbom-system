@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 contract SBOMRegistry {
     struct SBOMEntry {
         bytes32 hash;
-        string image;
+        bytes32 softwareDigest;
         string identifier;
         bytes32 imageId;
         string ipfsCid;
@@ -19,7 +19,7 @@ contract SBOMRegistry {
 
     event SBOMStored(
         bytes32 indexed hash,
-        string image,
+        bytes32 softwareDigest,
         string identifier,
         bytes32 imageId,
         string ipfsCid,
@@ -31,7 +31,7 @@ contract SBOMRegistry {
 
     function storeSBOM(
         bytes32 hash,
-        string calldata image,
+        bytes32 softwareDigest,
         string calldata identifier,
         bytes32 imageId,
         string calldata ipfsCid,
@@ -41,7 +41,7 @@ contract SBOMRegistry {
         require(entries[hash].timestamp == 0, "Already stored");
         SBOMEntry memory entry = SBOMEntry({
             hash: hash,
-            image: image,
+            softwareDigest: softwareDigest,
             identifier: identifier,
             imageId: imageId,
             ipfsCid: ipfsCid,
@@ -52,7 +52,7 @@ contract SBOMRegistry {
         });
         entries[hash] = entry;
         hashes.push(hash);
-        emit SBOMStored(hash, image, identifier, imageId, ipfsCid, isValid, bannedListHash, msg.sender, block.timestamp);
+        emit SBOMStored(hash, softwareDigest, identifier, imageId, ipfsCid, isValid, bannedListHash, msg.sender, block.timestamp);
     }
 
     function getSBOM(bytes32 hash) external view returns (SBOMEntry memory) {

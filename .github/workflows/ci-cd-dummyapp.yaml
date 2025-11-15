@@ -352,144 +352,70 @@ jobs:
           
           rm -f "$PROOF_FILE" "$STORE_PAYLOAD_FILE"
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: |
-          npm install ethers@^6.0.0
-
       - name: Write to blockchain
         run: |
-          RPC_URL="http://hardhat-node.blockchain.svc.cluster.local:8545"
           CONTRACT_ADDR="0x5FbDB2315678afecb367f032d93F642f64180aa3"
           SBOM_HASH="${{ steps.prove.outputs.sbom_hash }}"
           
-          # Extract first tag from metadata (tags can be multiline)
-          IMAGE_TAG="${{ needs.build-and-scan.outputs.image_tag }}"
-          if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "" ]; then
-            IMAGE_TAG="latest"
+          # Extract Docker image digest (format: sha256:abc123...)
+          IMAGE_DIGEST="${{ needs.build-and-scan.outputs.image_digest }}"
+          
+          # Remove "sha256:" prefix if present, keep only the hash
+          if [[ "$IMAGE_DIGEST" == sha256:* ]]; then
+            SOFTWARE_DIGEST="${IMAGE_DIGEST#sha256:}"
           else
-            # Get first line if multiple tags
-            IMAGE_TAG=$(echo "$IMAGE_TAG" | head -n 1 | tr -d '\n')
+            SOFTWARE_DIGEST="$IMAGE_DIGEST"
           fi
           
-          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/sharing-sbom-system-app:${IMAGE_TAG}"
+          # Verify digest format (64 hex chars)
+          if [[ ! "$SOFTWARE_DIGEST" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "ERROR: Invalid software digest format: $SOFTWARE_DIGEST"
+            echo "Expected 64 hex characters (with or without sha256: prefix)"
+            exit 1
+          fi
+          
           IDENTIFIER="github-ci-${{ github.run_id }}"
           IMAGE_ID="${{ steps.prove.outputs.image_id }}"
           IPFS_CID="${{ steps.ipfs.outputs.ipfs_cid }}"
           IS_VALID="${{ steps.prove.outputs.is_valid }}"
           BANNED_LIST_HASH="${{ steps.prove.outputs.banned_list_hash }}"
-          PRIVATE_KEY="0xea6c44ac03bff858b476bba40716402b03e41b8e97e276d1baec7c37d42484a0"
           
           echo "Writing to blockchain..."
           echo "  Contract: $CONTRACT_ADDR"
           echo "  SBOM Hash: $SBOM_HASH"
-          echo "  Image: $IMAGE_NAME"
+          echo "  Software Digest: sha256:$SOFTWARE_DIGEST"
           echo "  Identifier: $IDENTIFIER"
           echo "  Image ID: $IMAGE_ID"
           echo "  IPFS CID: $IPFS_CID"
           echo "  Is Valid: $IS_VALID"
           echo "  Banned List Hash: $BANNED_LIST_HASH"
           
-          export RPC_URL CONTRACT_ADDR SBOM_HASH IMAGE_NAME IDENTIFIER IMAGE_ID IPFS_CID IS_VALID BANNED_LIST_HASH PRIVATE_KEY
-          TX_HASH=$(node << 'EOF'
-          const { ethers } = require("ethers");
+          # Get Hardhat pod name
+          HARDHAT_POD=$(kubectl get pods -n blockchain -l app=hardhat-node -o jsonpath='{.items[0].metadata.name}')
           
-          const RPC_URL = process.env.RPC_URL;
-          const CONTRACT_ADDR = process.env.CONTRACT_ADDR;
-          const SBOM_HASH = process.env.SBOM_HASH;
-          const IMAGE_NAME = process.env.IMAGE_NAME;
-          const IDENTIFIER = process.env.IDENTIFIER;
-          const IMAGE_ID_STR = process.env.IMAGE_ID;
-          const IPFS_CID = process.env.IPFS_CID;
-          const IS_VALID = process.env.IS_VALID === "true";
-          const BANNED_LIST_HASH = process.env.BANNED_LIST_HASH;
-          const PRIVATE_KEY = process.env.PRIVATE_KEY;
+          if [ -z "$HARDHAT_POD" ]; then
+            echo "ERROR: Hardhat node not found"
+            exit 1
+          fi
           
-          (async () => {
-            try {
-              const provider = new ethers.JsonRpcProvider(RPC_URL);
-              const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-            
-              const abi = [
-                "function storeSBOM(bytes32 hash, string image, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash) external",
-                "function getSBOM(bytes32 hash) external view returns (tuple(bytes32 hash, string image, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, uint256 timestamp, address submitter))",
-                "function exists(bytes32 hash) external view returns (bool)",
-                "function listHashes() external view returns (bytes32[])",
-                "event SBOMStored(bytes32 indexed hash, string image, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, address indexed submitter, uint256 timestamp)"
-              ];
-            
-              const contract = new ethers.Contract(CONTRACT_ADDR, abi, wallet);
-            
-              const hashBytes32 = "0x" + SBOM_HASH;
-              
-              // Check if hash already exists
-              const exists = await contract.exists(hashBytes32);
-              if (exists) {
-                console.log("ERROR: SBOM hash already exists in contract");
-                console.log("Hash:", hashBytes32);
-                try {
-                  const entry = await contract.getSBOM(hashBytes32);
-                  console.log("Existing entry:");
-                  console.log("  Image:", entry.image);
-                  console.log("  Identifier:", entry.identifier);
-                  console.log("  IPFS CID:", entry.ipfsCid);
-                  console.log("  Timestamp:", new Date(Number(entry.timestamp) * 1000).toISOString());
-                } catch (e) {
-                  console.log("Could not retrieve entry details");
-                }
-                throw new Error("SBOM hash already stored. Each run needs a unique SBOM hash.");
-              }
-              
-              const u32s = IMAGE_ID_STR.split(",").map(s => parseInt(s.trim(), 10));
-              if (u32s.length !== 8) {
-                throw new Error(`Expected 8 u32 values, got ${u32s.length}`);
-              }
-              
-              const buffer = new ArrayBuffer(32);
-              const view = new DataView(buffer);
-              for (let i = 0; i < 8; i++) {
-                view.setUint32(i * 4, u32s[i], true);
-              }
-              
-              const imageIdBytes32 = ethers.hexlify(new Uint8Array(buffer));
-              
-              const bannedListHashBytes32 = BANNED_LIST_HASH.startsWith("0x") 
-                ? BANNED_LIST_HASH 
-                : "0x" + BANNED_LIST_HASH;
-              
-              console.log("Sending transaction...");
-              const tx = await contract.storeSBOM(
-                hashBytes32, 
-                IMAGE_NAME, 
-                IDENTIFIER, 
-                imageIdBytes32,
-                IPFS_CID,
-                IS_VALID,
-                bannedListHashBytes32
-              );
-              console.log("Transaction sent:", tx.hash);
-            
-              console.log("Waiting for confirmation...");
-              const receipt = await tx.wait();
-              console.log("Transaction confirmed:", receipt.hash);
-              console.log(receipt.hash);
-            } catch (error) {
-              console.error("Error:", error.message || error);
-              if (error.reason) {
-                console.error("Reason:", error.reason);
-              }
-              if (error.data) {
-                console.error("Data:", error.data);
-              }
-              process.exit(1);
-            }
-          })();
-          EOF
-          )
+          echo "Found Hardhat pod: $HARDHAT_POD"
+          
+          kubectl cp scripts/blockchain/store_sbom.js "blockchain/$HARDHAT_POD:/workspace/store_sbom.js"
+          
+          # Run store_sbom.js in Hardhat pod using Hardhat runtime environment
+          echo "Executing store_sbom.js in Hardhat pod..."
+          TX_OUTPUT=$(kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && ADDR='$CONTRACT_ADDR' HASH='$SBOM_HASH' SOFTWARE_DIGEST='$SOFTWARE_DIGEST' IDENT='$IDENTIFIER' IMAGE_ID='$IMAGE_ID' IPFS_CID='$IPFS_CID' IS_VALID='$IS_VALID' BANNED_LIST_HASH='$BANNED_LIST_HASH' npx hardhat run store_sbom.js --network localhost 2>&1")
+          
+          echo "$TX_OUTPUT"
+          
+          # Extract transaction hash (last line)
+          TX_HASH=$(echo "$TX_OUTPUT" | tail -n1)
+          
+          # Verify it's a valid transaction hash
+          if [[ ! "$TX_HASH" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
+            echo "ERROR: Invalid transaction hash: $TX_HASH"
+            exit 1
+          fi
           
           echo "Transaction Hash: $TX_HASH"
           echo "$TX_HASH" > tx_hash.txt
