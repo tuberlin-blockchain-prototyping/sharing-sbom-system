@@ -155,12 +155,18 @@ jobs:
           echo "Files in current directory:"
           ls -la
           echo ""
-          echo "Using hardcoded SBOM for proving service"
-          cat > sbom.json << 'EOF'
+          echo "Creating hardcoded SBOM for proving service (with unique run ID)..."
+          RUN_ID="${{ github.run_id }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          cat > sbom.json << EOF
           {
             "bomFormat": "CycloneDX",
             "specVersion": "1.4",
             "version": 1,
+            "metadata": {
+              "timestamp": "${TIMESTAMP}",
+              "ciRunId": "${RUN_ID}"
+            },
             "components": [
               {
                 "type": "library",
@@ -183,6 +189,7 @@ jobs:
             ]
           }
           EOF
+          echo "Run ID: ${RUN_ID}, Timestamp: ${TIMESTAMP}"
           echo "sbom_file=sbom.json" >> $GITHUB_OUTPUT
           echo "Hardcoded SBOM file created: sbom.json"
           echo "SBOM file size: $(wc -c < sbom.json) bytes"
@@ -359,7 +366,17 @@ jobs:
           RPC_URL="http://hardhat-node.blockchain.svc.cluster.local:8545"
           CONTRACT_ADDR="0x5FbDB2315678afecb367f032d93F642f64180aa3"
           SBOM_HASH="${{ steps.prove.outputs.sbom_hash }}"
-          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/sharing-sbom-system-app:${{ needs.build-and-scan.outputs.image_tag }}"
+          
+          # Extract first tag from metadata (tags can be multiline)
+          IMAGE_TAG="${{ needs.build-and-scan.outputs.image_tag }}"
+          if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "" ]; then
+            IMAGE_TAG="latest"
+          else
+            # Get first line if multiple tags
+            IMAGE_TAG=$(echo "$IMAGE_TAG" | head -n 1 | tr -d '\n')
+          fi
+          
+          IMAGE_NAME="${{ secrets.DOCKER_USERNAME }}/sharing-sbom-system-app:${IMAGE_TAG}"
           IDENTIFIER="github-ci-${{ github.run_id }}"
           IMAGE_ID="${{ steps.prove.outputs.image_id }}"
           IPFS_CID="${{ steps.ipfs.outputs.ipfs_cid }}"
