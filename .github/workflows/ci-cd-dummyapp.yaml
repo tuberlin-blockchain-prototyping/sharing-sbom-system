@@ -6,10 +6,8 @@ name: CI/CD Dummyapp
 on:
   push:
     branches: [main]
-  workflow_run:
-    workflows: ["Deploy Microservices"]
-    types:
-      - completed
+    paths-ignore:
+      - 'k8s/**'
 
 jobs:
   build-and-scan:
@@ -130,7 +128,6 @@ jobs:
   generate-proof:
     runs-on: [self-hosted, kind-cluster, blockchain]
     needs: [build-and-scan, fetch-cve-banned-list]
-    if: github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -140,12 +137,42 @@ jobs:
         with:
           name: sbom-and-security-reports
           path: .
+          if-no-files-found: error
 
       - name: Download banned list
         uses: actions/download-artifact@v4
         with:
           name: banned-list
           path: .
+          if-no-files-found: error
+
+      - name: Verify and locate artifacts
+        id: locate
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo ""
+          echo "Looking for SBOM file:"
+          SBOM_FILE=$(find . -name "app.json" -type f 2>/dev/null | head -1)
+          if [ -n "$SBOM_FILE" ]; then
+            echo "Found SBOM file at: $SBOM_FILE"
+            echo "sbom_file=$SBOM_FILE" >> $GITHUB_OUTPUT
+          elif [ -f "sboms/app.json" ]; then
+            echo "SBOM file found at sboms/app.json"
+            echo "sbom_file=sboms/app.json" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: SBOM file not found!"
+            echo "Searching for any JSON files:"
+            find . -type f -name "*.json" 2>/dev/null | head -10
+            exit 1
+          fi
+          
+          if [ ! -f "banned_list.txt" ]; then
+            echo "ERROR: banned_list.txt not found!"
+            ls -la
+            exit 1
+          fi
 
       - name: Install kubectl
         run: |
@@ -161,8 +188,14 @@ jobs:
         id: prove
         run: |
           PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
+          SBOM_FILE="${{ steps.locate.outputs.sbom_file }}"
           
-          SBOM_JSON=$(cat sboms/app.json)
+          if [ ! -f "$SBOM_FILE" ]; then
+            echo "ERROR: SBOM file not found at $SBOM_FILE"
+            exit 1
+          fi
+          
+          SBOM_JSON=$(cat "$SBOM_FILE")
           BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
           
           REQUEST_PAYLOAD=$(jq -n \

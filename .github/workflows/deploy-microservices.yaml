@@ -6,6 +6,11 @@ name: Deploy Microservices
 on:
   push:
     branches: [main]
+    paths:
+      - 'proving-service/**'
+      - 'verifier-service/**'
+      - 'ipfs-service/**'
+      - '.github/workflows/deploy-microservices.yaml'
 
 jobs:
   build-and-update-microservices:
