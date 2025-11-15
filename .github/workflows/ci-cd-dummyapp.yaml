@@ -128,6 +128,7 @@ jobs:
   generate-proof:
     runs-on: [self-hosted, kind-cluster, blockchain]
     needs: [build-and-scan, fetch-cve-banned-list]
+    timeout-minutes: 60
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -214,6 +215,7 @@ jobs:
 
       - name: Call proving-service to generate proof
         id: prove
+        timeout-minutes: 45
         run: |
           PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
           SBOM_FILE="${{ steps.locate.outputs.sbom_file }}"
@@ -253,13 +255,15 @@ jobs:
           LOGS_PID=$!
           
           # Send request with very long timeout (30 minutes)
-          RESPONSE=$(curl -X POST "$PROVING_SERVICE_URL/prove" \
+          # Use --no-keepalive to avoid connection issues, and increase buffer
+          RESPONSE=$(timeout 1800 curl -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
             --data-binary @request_payload.json \
             --max-time 1800 \
             --connect-timeout 30 \
-            --no-buffer \
-            -w "\nHTTP Status: %{http_code}\n" 2>&1)
+            --keepalive-time 300 \
+            --buffer \
+            -w "\nHTTP Status: %{http_code}\n" 2>&1 || echo "CURL_EXIT_CODE:$?")
           
           # Stop log monitoring
           kill $LOGS_PID 2>/dev/null || true

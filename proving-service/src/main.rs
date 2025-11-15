@@ -22,6 +22,8 @@ async fn main() -> std::io::Result<()> {
             .route("/prove", web::post().to(handlers::prove))
     })
     .bind(("0.0.0.0", config.port))?
+    .keep_alive(std::time::Duration::from_secs(3600))
+    .client_timeout(3600000)
     .run()
     .await
 }
