@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verifier-service
+  namespace: sharing-sbom-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: verifier-service
+  template:
+    metadata:
+      labels:
+        app: verifier-service
+    spec:
+      containers:
+      - name: verifier-service
+        image: verifier-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        - name: RUST_LOG
+          value: "info"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+

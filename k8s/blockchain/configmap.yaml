@@ -1,0 +1,139 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hardhat-config
+  namespace: blockchain
+data:
+  package.json: |
+    {
+      "name": "hardhat-node",
+      "version": "1.0.0",
+      "devDependencies": {
+        "hardhat": "^2.22.2",
+        "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+        "@nomicfoundation/hardhat-ethers": "^3.0.0",
+        "ethers": "^6.0.0"
+      }
+    }
+  hardhat.config.js: |
+    require("@nomicfoundation/hardhat-toolbox");
+    
+    module.exports = {
+      solidity: "0.8.20",
+      networks: {
+        hardhat: {
+          chainId: 31337,
+          mining: {
+            auto: true,
+            interval: 0
+          }
+        },
+        localhost: {
+          url: "http://localhost:8545",
+          chainId: 31337
+        }
+      },
+      paths: {
+        sources: "./contracts",
+        tests: "./test",
+        cache: "./cache",
+        artifacts: "./artifacts"
+      }
+    };
+  deploy.js: |
+    const { ethers } = require("hardhat");
+    
+    async function main() {
+      const [deployer] = await ethers.getSigners();
+      console.log("Deploying with account:", deployer.address);
+      
+      const SBOMRegistry = await ethers.getContractFactory("SBOMRegistry");
+      const registry = await SBOMRegistry.deploy();
+      await registry.waitForDeployment();
+      
+      const address = await registry.getAddress();
+      console.log("SBOMRegistry deployed to:", address);
+      return address;
+    }
+    
+    main()
+      .then((address) => {
+        process.stdout.write(address);
+        process.exit(0);
+      })
+      .catch((error) => {
+        console.error(error);
+        process.exit(1);
+      });
+  SBOMRegistry.sol: |
+    // SPDX-License-Identifier: MIT
+    pragma solidity ^0.8.20;
+    
+    contract SBOMRegistry {
+        struct SBOMEntry {
+            bytes32 hash;
+            string image;
+            string identifier;
+            bytes32 imageId;
+            string ipfsCid;
+            bool isValid;
+            bytes32 bannedListHash;
+            uint256 timestamp;
+            address submitter;
+        }
+    
+        mapping(bytes32 => SBOMEntry) private entries;
+        bytes32[] private hashes;
+    
+        event SBOMStored(
+            bytes32 indexed hash,
+            string image,
+            string identifier,
+            bytes32 imageId,
+            string ipfsCid,
+            bool isValid,
+            bytes32 bannedListHash,
+            address indexed submitter,
+            uint256 timestamp
+        );
+    
+        function storeSBOM(
+            bytes32 hash,
+            string calldata image,
+            string calldata identifier,
+            bytes32 imageId,
+            string calldata ipfsCid,
+            bool isValid,
+            bytes32 bannedListHash
+        ) external {
+            require(entries[hash].timestamp == 0, "Already stored");
+            SBOMEntry memory entry = SBOMEntry({
+                hash: hash,
+                image: image,
+                identifier: identifier,
+                imageId: imageId,
+                ipfsCid: ipfsCid,
+                isValid: isValid,
+                bannedListHash: bannedListHash,
+                timestamp: block.timestamp,
+                submitter: msg.sender
+            });
+            entries[hash] = entry;
+            hashes.push(hash);
+            emit SBOMStored(hash, image, identifier, imageId, ipfsCid, isValid, bannedListHash, msg.sender, block.timestamp);
+        }
+    
+        function getSBOM(bytes32 hash) external view returns (SBOMEntry memory) {
+            require(entries[hash].timestamp != 0, "Not found");
+            return entries[hash];
+        }
+    
+        function exists(bytes32 hash) external view returns (bool) {
+            return entries[hash].timestamp != 0;
+        }
+    
+        function listHashes() external view returns (bytes32[] memory) {
+            return hashes;
+        }
+    }
+

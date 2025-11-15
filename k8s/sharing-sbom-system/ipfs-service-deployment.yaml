@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ipfs-service
+  namespace: sharing-sbom-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ipfs-service
+  template:
+    metadata:
+      labels:
+        app: ipfs-service
+    spec:
+      containers:
+      - name: ipfs-service
+        image: ipfs-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        - name: IPFS_HOST
+          value: "ipfs-node"
+        - name: IPFS_PORT
+          value: "5001"
+        - name: IPFS_PROTOCOL
+          value: "http"
+        - name: DB_PATH
+          value: "/data/ipfs.db"
+        volumeMounts:
+        - name: ipfs-service-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: ipfs-service-data
+        emptyDir: {}
+

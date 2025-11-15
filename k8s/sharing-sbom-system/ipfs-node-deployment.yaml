@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ipfs-node
+  namespace: sharing-sbom-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ipfs-node
+  template:
+    metadata:
+      labels:
+        app: ipfs-node
+    spec:
+      containers:
+      - name: ipfs
+        image: ipfs/kubo:latest
+        ports:
+        - containerPort: 4001
+          name: swarm
+        - containerPort: 5001
+          name: api
+        - containerPort: 8080
+          name: gateway
+        env:
+        - name: IPFS_PROFILE
+          value: "server"
+        volumeMounts:
+        - name: ipfs-data
+          mountPath: /data/ipfs
+        - name: ipfs-staging
+          mountPath: /data/ipfs/staging
+      volumes:
+      - name: ipfs-data
+        emptyDir: {}
+      - name: ipfs-staging
+        emptyDir: {}
+

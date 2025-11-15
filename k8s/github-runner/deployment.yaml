@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-runner
+  namespace: github-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-runner
+  template:
+    metadata:
+      labels:
+        app: github-runner
+    spec:
+      serviceAccountName: github-runner
+      initContainers:
+      - name: runner-register
+        image: curlimages/curl:latest
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            echo "Fetching registration token..."
+            RESPONSE=$(curl -sX POST -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$REPO_PATH/actions/runners/registration-token")
+            echo "API Response: $RESPONSE"
+            TOKEN=$(echo "$RESPONSE" | sed -n 's/.*"token": "\([^"]*\)".*/\1/p')
+            echo "Extracted Token: $TOKEN"
+            if [ -z "$TOKEN" ]; then
+              echo "ERROR: Failed to extract token"
+              exit 1
+            fi
+            echo -n "$TOKEN" > /runner-token/token
+            echo "Token saved to /runner-token/token"
+        env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: github-runner-secret
+              key: GITHUB_TOKEN
+        - name: REPO_PATH
+          value: tuberlin-blockchain-prototyping/sharing-sbom-system
+        volumeMounts:
+        - name: runner-token
+          mountPath: /runner-token
+      containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            TOKEN=$(cat /runner-token/token)
+            ./config.sh --url https://github.com/tuberlin-blockchain-prototyping/sharing-sbom-system \
+              --token $TOKEN \
+              --name kind-cluster-runner \
+              --labels self-hosted,kind-cluster,blockchain \
+              --work /runner-work \
+              --unattended \
+              --replace
+            ./run.sh
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+        - name: runner-work
+          mountPath: /runner-work
+        - name: runner-token
+          mountPath: /runner-token
+        securityContext:
+          privileged: true
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+      - name: runner-work
+        emptyDir: {}
+      - name: runner-token
+        emptyDir: {}
+

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ipfs-node
+  namespace: sharing-sbom-system
+spec:
+  selector:
+    app: ipfs-node
+  ports:
+  - port: 4001
+    targetPort: 4001
+    protocol: TCP
+    name: swarm
+  - port: 5001
+    targetPort: 5001
+    protocol: TCP
+    name: api
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: gateway
+  type: ClusterIP
+

@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hardhat-node
+  namespace: blockchain
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hardhat-node
+  template:
+    metadata:
+      labels:
+        app: hardhat-node
+    spec:
+      containers:
+      - name: hardhat
+        image: node:24-alpine
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            cd /workspace
+            npm install
+            
+            # Start Hardhat node in background
+            npx hardhat node --hostname 0.0.0.0 &
+            HARDHAT_PID=$!
+            
+            # Wait for node to be ready
+            echo "Waiting for Hardhat node to be ready..."
+            sleep 5
+            
+            # Deploy contract (will always be at 0x5FbDB2315678afecb367f032d93F642f64180aa3)
+            echo "Deploying SBOMRegistry contract..."
+            npx hardhat run deploy.js --network localhost
+            echo "Contract deployed and ready!"
+            
+            # Keep container running
+            wait $HARDHAT_PID
+        ports:
+        - containerPort: 8545
+          name: rpc
+        volumeMounts:
+        - name: hardhat-config
+          mountPath: /workspace/package.json
+          subPath: package.json
+        - name: hardhat-config
+          mountPath: /workspace/hardhat.config.js
+          subPath: hardhat.config.js
+        - name: hardhat-config
+          mountPath: /workspace/deploy.js
+          subPath: deploy.js
+        - name: hardhat-config
+          mountPath: /workspace/contracts/SBOMRegistry.sol
+          subPath: SBOMRegistry.sol
+        - name: workspace
+          mountPath: /workspace
+      volumes:
+      - name: hardhat-config
+        configMap:
+          name: hardhat-config
+      - name: workspace
+        emptyDir: {}
+
