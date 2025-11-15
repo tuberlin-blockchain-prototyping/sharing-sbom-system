@@ -1,9 +1,5 @@
 name: CI/CD Dummyapp
 
-# Builds a dummy application, generates SBOM, and creates ZKP proof
-# Uses the deployed microservices to validate and store the proof
-# Note: dummyapp2 has minimal dependencies for faster proof generation
-
 on:
   push:
     branches: [main]
@@ -148,13 +144,10 @@ jobs:
           path: .
           if-no-files-found: error
 
-      - name: Verify and locate artifacts
+      - name: Create SBOM for proving
         id: locate
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in current directory:"
-          ls -la
-          echo ""
+
           echo "Creating hardcoded SBOM for proving service (with unique run ID)..."
           RUN_ID="${{ github.run_id }}"
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -191,19 +184,7 @@ jobs:
           EOF
           echo "Run ID: ${RUN_ID}, Timestamp: ${TIMESTAMP}"
           echo "sbom_file=sbom.json" >> $GITHUB_OUTPUT
-          echo "Hardcoded SBOM file created: sbom.json"
-          echo "SBOM file size: $(wc -c < sbom.json) bytes"
-          
-          # Verify generated SBOM exists
-          if [ -f "sboms/app.json" ]; then
-            echo "Generated SBOM found at sboms/app.json (kept for reference, not used for proving)"
-          fi
-          
-          if [ ! -f "banned_list.txt" ]; then
-            echo "ERROR: banned_list.txt not found!"
-            ls -la
-            exit 1
-          fi
+          [ ! -f "banned_list.txt" ] && { echo "ERROR: banned_list.txt not found"; exit 1; }
 
       - name: Install kubectl
         run: |
@@ -211,213 +192,85 @@ jobs:
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
 
-      - name: Wait for proving-service to be ready
+      - name: Wait for proving-service
         run: |
-          echo "Checking if proving-service deployment exists..."
-          kubectl get deployment proving-service -n sharing-sbom-system || echo "Deployment not found, continuing..."
-          echo "Waiting for proving-service to be available..."
-          kubectl wait --for=condition=available --timeout=300s deployment/proving-service -n sharing-sbom-system || echo "Wait timeout, checking service status..."
-          kubectl get pods -n sharing-sbom-system -l app=proving-service || true
-          echo "Checking service endpoint..."
-          kubectl get svc proving-service -n sharing-sbom-system || true
-          
-          echo "Waiting for service to be fully ready and DNS to resolve..."
+          kubectl wait --for=condition=available --timeout=300s deployment/proving-service -n sharing-sbom-system
           PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
-          MAX_RETRIES=30
-          RETRY_COUNT=0
-          
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if curl -s --max-time 5 "$PROVING_SERVICE_URL/health" > /dev/null 2>&1; then
-              echo "✓ Service is reachable after $RETRY_COUNT retries"
-              break
-            fi
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            echo "Waiting for service... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+          for i in {1..30}; do
+            curl -s --max-time 5 "$PROVING_SERVICE_URL/health" > /dev/null 2>&1 && break
             sleep 2
           done
-          
-          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-            echo "WARNING: Service health check failed after $MAX_RETRIES attempts"
-            echo "Checking pod status..."
-            kubectl get pods -n sharing-sbom-system -l app=proving-service || true
-            kubectl logs -n sharing-sbom-system -l app=proving-service --tail=20 || true
-          fi
 
-      - name: Call proving-service to generate proof
+      - name: Generate proof
         id: prove
         timeout-minutes: 45
         run: |
           PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
           SBOM_FILE="${{ steps.locate.outputs.sbom_file }}"
-          
-          if [ ! -f "$SBOM_FILE" ]; then
-            echo "ERROR: SBOM file not found at $SBOM_FILE"
-            exit 1
-          fi
-          
-          echo "SBOM file size: $(wc -c < "$SBOM_FILE") bytes"
-          echo "Preparing request payload..."
+          [ ! -f "$SBOM_FILE" ] && { echo "ERROR: SBOM file not found"; exit 1; }
           
           BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          
-          jq -n \
-            --slurpfile sbom "$SBOM_FILE" \
-            --argjson banned_list "$BANNED_LIST" \
-            '{sbom: $sbom[0], banned_list: $banned_list}' > request_payload.json
-          
-          echo "Request payload size: $(wc -c < request_payload.json) bytes"
-          echo "Calling proving-service at $PROVING_SERVICE_URL/prove..."
-          
-          # Service should already be ready from previous step, but verify once more
-          echo "Verifying service connectivity..."
-          if ! curl -s --max-time 10 "$PROVING_SERVICE_URL/health" > /dev/null 2>&1; then
-            echo "WARNING: Health check failed, but proceeding with proof generation..."
-            echo "Service might be slow to respond, but should handle the request"
-          else
-            echo "✓ Service connectivity confirmed"
-          fi
-          
-          echo "Sending proof generation request (this may take 10-30 minutes for large SBOMs)..."
+          jq -n --slurpfile sbom "$SBOM_FILE" --argjson banned_list "$BANNED_LIST" '{sbom: $sbom[0], banned_list: $banned_list}' > request_payload.json
           
           RESPONSE_FILE=$(mktemp)
-          HTTP_CODE_FILE=$(mktemp)
-          
-          curl -X POST "$PROVING_SERVICE_URL/prove" \
+          HTTP_CODE=$(curl -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
             --data-binary @request_payload.json \
             --max-time 1800 \
-            --connect-timeout 30 \
             --write-out "%{http_code}" \
             --output "$RESPONSE_FILE" \
-            --silent \
-            --show-error > "$HTTP_CODE_FILE" 2>&1
+            --silent)
           
-          HTTP_CODE=$(cat "$HTTP_CODE_FILE")
-          echo "HTTP Status Code: $HTTP_CODE"
-          
-          if [ -z "$HTTP_CODE" ] || [ "$HTTP_CODE" != "200" ]; then
-            echo "ERROR: Proving service returned non-200 status code or connection failed"
-            echo "Response preview (first 500 chars):"
-            head -c 500 "$RESPONSE_FILE" || true
-            echo ""
-            echo "Checking service logs..."
-            kubectl logs -n sharing-sbom-system -l app=proving-service --tail=50 || true
-            echo "Checking if proof generation is still in progress..."
-            kubectl get pods -n sharing-sbom-system -l app=proving-service || true
-            rm -f "$RESPONSE_FILE" "$HTTP_CODE_FILE"
-            exit 1
-          fi
+          [ "$HTTP_CODE" != "200" ] && { echo "ERROR: Proof generation failed ($HTTP_CODE)"; cat "$RESPONSE_FILE"; exit 1; }
           
           RESPONSE_BODY=$(cat "$RESPONSE_FILE")
           echo "$RESPONSE_BODY" | jq .
           
-          PROOF=$(echo "$RESPONSE_BODY" | jq -r '.proof')
-          SBOM_HASH=$(echo "$RESPONSE_BODY" | jq -r '.sbom_hash')
-          IMAGE_ID=$(echo "$RESPONSE_BODY" | jq -r '.image_id | join(",")')
-          IS_VALID=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.is_valid')
-          BANNED_LIST_HASH=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.banned_list_info.hash')
-          
-          echo "proof=$PROOF" >> $GITHUB_OUTPUT
-          echo "sbom_hash=$SBOM_HASH" >> $GITHUB_OUTPUT
-          echo "image_id=$IMAGE_ID" >> $GITHUB_OUTPUT
-          echo "is_valid=$IS_VALID" >> $GITHUB_OUTPUT
-          echo "banned_list_hash=$BANNED_LIST_HASH" >> $GITHUB_OUTPUT
+          echo "proof=$(echo "$RESPONSE_BODY" | jq -r '.proof')" >> $GITHUB_OUTPUT
+          echo "sbom_hash=$(echo "$RESPONSE_BODY" | jq -r '.sbom_hash')" >> $GITHUB_OUTPUT
+          echo "image_id=$(echo "$RESPONSE_BODY" | jq -r '.image_id | join(",")')" >> $GITHUB_OUTPUT
+          echo "is_valid=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.is_valid')" >> $GITHUB_OUTPUT
+          echo "banned_list_hash=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.banned_list_info.hash')" >> $GITHUB_OUTPUT
           
           echo "$RESPONSE_BODY" | jq . > proof_info.json
-          rm -f "$RESPONSE_FILE" "$HTTP_CODE_FILE"
+          rm -f "$RESPONSE_FILE"
 
       - name: Store proof on IPFS
         id: ipfs
         run: |
           IPFS_SERVICE_URL="http://ipfs-service.sharing-sbom-system.svc.cluster.local"
-          
           PROOF_FILE=$(mktemp)
           echo "${{ steps.prove.outputs.proof }}" > "$PROOF_FILE"
+          PAYLOAD_FILE=$(mktemp)
+          jq -n --rawfile proof "$PROOF_FILE" --arg sbom_hash "${{ steps.prove.outputs.sbom_hash }}" '{proof: $proof, sbom_hash: $sbom_hash}' > "$PAYLOAD_FILE"
           
-          STORE_PAYLOAD_FILE=$(mktemp)
-          jq -n \
-            --rawfile proof "$PROOF_FILE" \
-            --arg sbom_hash "${{ steps.prove.outputs.sbom_hash }}" \
-            '{proof: $proof, sbom_hash: $sbom_hash}' > "$STORE_PAYLOAD_FILE"
-          
-          echo "Storing proof on IPFS..."
-          IPFS_RESPONSE=$(curl -s -X POST "$IPFS_SERVICE_URL/store" \
-            -H "Content-Type: application/json" \
-            -d @"$STORE_PAYLOAD_FILE")
-          
+          IPFS_RESPONSE=$(curl -s -X POST "$IPFS_SERVICE_URL/store" -H "Content-Type: application/json" -d @"$PAYLOAD_FILE")
           echo "$IPFS_RESPONSE" | jq .
-          
-          IPFS_CID=$(echo "$IPFS_RESPONSE" | jq -r '.ipfs_cid')
-          echo "ipfs_cid=$IPFS_CID" >> $GITHUB_OUTPUT
-          
-          rm -f "$PROOF_FILE" "$STORE_PAYLOAD_FILE"
+          echo "ipfs_cid=$(echo "$IPFS_RESPONSE" | jq -r '.ipfs_cid')" >> $GITHUB_OUTPUT
+          rm -f "$PROOF_FILE" "$PAYLOAD_FILE"
 
       - name: Write to blockchain
         run: |
           CONTRACT_ADDR="0x5FbDB2315678afecb367f032d93F642f64180aa3"
-          SBOM_HASH="${{ steps.prove.outputs.sbom_hash }}"
-          
-          # Extract Docker image digest (format: sha256:abc123...)
           IMAGE_DIGEST="${{ needs.build-and-scan.outputs.image_digest }}"
+          [[ "$IMAGE_DIGEST" == sha256:* ]] && SOFTWARE_DIGEST="${IMAGE_DIGEST#sha256:}" || SOFTWARE_DIGEST="$IMAGE_DIGEST"
+          [[ ! "$SOFTWARE_DIGEST" =~ ^[0-9a-fA-F]{64}$ ]] && { echo "ERROR: Invalid digest format"; exit 1; }
           
-          # Remove "sha256:" prefix if present, keep only the hash
-          if [[ "$IMAGE_DIGEST" == sha256:* ]]; then
-            SOFTWARE_DIGEST="${IMAGE_DIGEST#sha256:}"
-          else
-            SOFTWARE_DIGEST="$IMAGE_DIGEST"
-          fi
-          
-          # Verify digest format (64 hex chars)
-          if [[ ! "$SOFTWARE_DIGEST" =~ ^[0-9a-fA-F]{64}$ ]]; then
-            echo "ERROR: Invalid software digest format: $SOFTWARE_DIGEST"
-            echo "Expected 64 hex characters (with or without sha256: prefix)"
-            exit 1
-          fi
-          
-          IDENTIFIER="github-ci-${{ github.run_id }}"
-          IMAGE_ID="${{ steps.prove.outputs.image_id }}"
-          IPFS_CID="${{ steps.ipfs.outputs.ipfs_cid }}"
-          IS_VALID="${{ steps.prove.outputs.is_valid }}"
-          BANNED_LIST_HASH="${{ steps.prove.outputs.banned_list_hash }}"
-          
-          echo "Writing to blockchain..."
-          echo "  Contract: $CONTRACT_ADDR"
-          echo "  SBOM Hash: $SBOM_HASH"
+          echo "Writing to blockchain:"
+          echo "  SBOM Hash: ${{ steps.prove.outputs.sbom_hash }}"
           echo "  Software Digest: sha256:$SOFTWARE_DIGEST"
-          echo "  Identifier: $IDENTIFIER"
-          echo "  Image ID: $IMAGE_ID"
-          echo "  IPFS CID: $IPFS_CID"
-          echo "  Is Valid: $IS_VALID"
-          echo "  Banned List Hash: $BANNED_LIST_HASH"
+          echo "  IPFS CID: ${{ steps.ipfs.outputs.ipfs_cid }}"
+          echo "  Valid: ${{ steps.prove.outputs.is_valid }}"
           
-          # Get Hardhat pod name
           HARDHAT_POD=$(kubectl get pods -n blockchain -l app=hardhat-node -o jsonpath='{.items[0].metadata.name}')
-          
-          if [ -z "$HARDHAT_POD" ]; then
-            echo "ERROR: Hardhat node not found"
-            exit 1
-          fi
-          
-          echo "Found Hardhat pod: $HARDHAT_POD"
+          [ -z "$HARDHAT_POD" ] && { echo "ERROR: Hardhat node not found"; exit 1; }
           
           kubectl cp scripts/blockchain/store_sbom.js "blockchain/$HARDHAT_POD:/workspace/store_sbom.js"
+          TX_OUTPUT=$(kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && ADDR='$CONTRACT_ADDR' HASH='${{ steps.prove.outputs.sbom_hash }}' SOFTWARE_DIGEST='$SOFTWARE_DIGEST' IDENT='github-ci-${{ github.run_id }}' IMAGE_ID='${{ steps.prove.outputs.image_id }}' IPFS_CID='${{ steps.ipfs.outputs.ipfs_cid }}' IS_VALID='${{ steps.prove.outputs.is_valid }}' BANNED_LIST_HASH='${{ steps.prove.outputs.banned_list_hash }}' npx hardhat run store_sbom.js --network localhost 2>&1")
           
-          # Run store_sbom.js in Hardhat pod using Hardhat runtime environment
-          echo "Executing store_sbom.js in Hardhat pod..."
-          TX_OUTPUT=$(kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && ADDR='$CONTRACT_ADDR' HASH='$SBOM_HASH' SOFTWARE_DIGEST='$SOFTWARE_DIGEST' IDENT='$IDENTIFIER' IMAGE_ID='$IMAGE_ID' IPFS_CID='$IPFS_CID' IS_VALID='$IS_VALID' BANNED_LIST_HASH='$BANNED_LIST_HASH' npx hardhat run store_sbom.js --network localhost 2>&1")
-          
-          echo "$TX_OUTPUT"
-          
-          # Extract transaction hash (last line)
           TX_HASH=$(echo "$TX_OUTPUT" | tail -n1)
-          
-          # Verify it's a valid transaction hash
-          if [[ ! "$TX_HASH" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
-            echo "ERROR: Invalid transaction hash: $TX_HASH"
-            exit 1
-          fi
-          
-          echo "Transaction Hash: $TX_HASH"
+          [[ ! "$TX_HASH" =~ ^0x[0-9a-fA-F]{64}$ ]] && { echo "ERROR: Invalid tx hash"; exit 1; }
+          echo "Transaction: $TX_HASH"
           echo "$TX_HASH" > tx_hash.txt
 
       - name: Upload proof artifacts

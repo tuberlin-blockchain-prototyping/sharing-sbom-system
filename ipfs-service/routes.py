@@ -44,6 +44,10 @@ def store():
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     
+    if not ipfs_client.is_connected():
+        logger.error("IPFS not connected - cannot store proof")
+        return jsonify({"error": "IPFS not connected. IPFS is required to store proofs."}), 503
+    
     existing = ProofMapping.query.filter_by(sbom_hash=sbom_hash).first()
     if existing:
         logger.info(f"Proof already stored for SBOM hash {sbom_hash}")
@@ -52,16 +56,12 @@ def store():
             "sbom_hash": sbom_hash
         }), 200
     
-    if not ipfs_client.is_connected():
-        cid = f"QmMock{sbom_hash[:10]}"
-        logger.warning(f"IPFS not connected, using mock CID: {cid}")
-    else:
-        try:
-            cid = ipfs_client.add_bytes(proof_bytes)
-            logger.info(f"Stored proof on IPFS with CID: {cid}")
-        except Exception as e:
-            logger.error(f"Failed to store on IPFS: {e}")
-            return jsonify({"error": f"Failed to store on IPFS: {e}"}), 500
+    try:
+        cid = ipfs_client.add_bytes(proof_bytes)
+        logger.info(f"Stored proof on IPFS with CID: {cid}")
+    except Exception as e:
+        logger.error(f"Failed to store on IPFS: {e}")
+        return jsonify({"error": f"Failed to store on IPFS: {e}"}), 500
     
     mapping = ProofMapping(sbom_hash=sbom_hash, ipfs_cid=cid)
     try:
@@ -85,19 +85,20 @@ def retrieve(sbom_hash):
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     
+    if not ipfs_client.is_connected():
+        logger.error("IPFS not connected - cannot retrieve proof")
+        return jsonify({"error": "IPFS not connected. IPFS is required to retrieve proofs."}), 503
+    
     mapping = ProofMapping.query.filter_by(sbom_hash=normalized_hash).first()
     if not mapping:
         logger.warning(f"SBOM hash not found: {normalized_hash}")
         return jsonify({"error": "SBOM hash not found"}), 404
     
-    if not ipfs_client.is_connected():
-        return jsonify({"error": "IPFS not connected"}), 503
-    
     try:
         proof_bytes = ipfs_client.cat(mapping.ipfs_cid)
         proof_base64 = base64.b64encode(proof_bytes).decode("utf-8")
         
-        logger.info(f"Retrieved proof for SBOM hash: {normalized_hash}")
+        logger.info(f"Retrieved proof from IPFS for SBOM hash: {normalized_hash}")
         return jsonify({
             "proof": proof_base64,
             "ipfs_cid": mapping.ipfs_cid,
