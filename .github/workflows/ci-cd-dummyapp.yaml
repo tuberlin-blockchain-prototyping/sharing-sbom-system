@@ -324,20 +324,26 @@ jobs:
         run: |
           IPFS_SERVICE_URL="http://ipfs-service.sharing-sbom-system.svc.cluster.local"
           
-          STORE_PAYLOAD=$(jq -n \
-            --arg proof "${{ steps.prove.outputs.proof }}" \
+          PROOF_FILE=$(mktemp)
+          echo "${{ steps.prove.outputs.proof }}" > "$PROOF_FILE"
+          
+          STORE_PAYLOAD_FILE=$(mktemp)
+          jq -n \
+            --rawfile proof "$PROOF_FILE" \
             --arg sbom_hash "${{ steps.prove.outputs.sbom_hash }}" \
-            '{proof: $proof, sbom_hash: $sbom_hash}')
+            '{proof: $proof, sbom_hash: $sbom_hash}' > "$STORE_PAYLOAD_FILE"
           
           echo "Storing proof on IPFS..."
           IPFS_RESPONSE=$(curl -s -X POST "$IPFS_SERVICE_URL/store" \
             -H "Content-Type: application/json" \
-            -d "$STORE_PAYLOAD")
+            -d @"$STORE_PAYLOAD_FILE")
           
           echo "$IPFS_RESPONSE" | jq .
           
           IPFS_CID=$(echo "$IPFS_RESPONSE" | jq -r '.ipfs_cid')
           echo "ipfs_cid=$IPFS_CID" >> $GITHUB_OUTPUT
+          
+          rm -f "$PROOF_FILE" "$STORE_PAYLOAD_FILE"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
