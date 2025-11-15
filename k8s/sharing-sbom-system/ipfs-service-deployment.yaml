@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: ipfs-service
-        image: acbdockeracc/ipfs-service:latest
+        image: acbdockeracc/ipfs-service:6a978bf
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
