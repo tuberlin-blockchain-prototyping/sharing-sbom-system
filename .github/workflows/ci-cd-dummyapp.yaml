@@ -182,7 +182,13 @@ jobs:
 
       - name: Wait for proving-service to be ready
         run: |
-          kubectl wait --for=condition=available --timeout=300s deployment/proving-service -n sharing-sbom-system || true
+          echo "Checking if proving-service deployment exists..."
+          kubectl get deployment proving-service -n sharing-sbom-system || echo "Deployment not found, continuing..."
+          echo "Waiting for proving-service to be available..."
+          kubectl wait --for=condition=available --timeout=300s deployment/proving-service -n sharing-sbom-system || echo "Wait timeout, checking service status..."
+          kubectl get pods -n sharing-sbom-system -l app=proving-service || true
+          echo "Checking service endpoint..."
+          kubectl get svc proving-service -n sharing-sbom-system || true
 
       - name: Call proving-service to generate proof
         id: prove
@@ -208,9 +214,20 @@ jobs:
           echo "Request payload size: $(wc -c < request_payload.json) bytes"
           echo "Calling proving-service at $PROVING_SERVICE_URL/prove..."
           
+          # Test connectivity first
+          echo "Testing connectivity to proving-service..."
+          if ! curl -s --max-time 5 "$PROVING_SERVICE_URL/health" > /dev/null; then
+            echo "ERROR: Cannot reach proving-service health endpoint"
+            echo "Checking service and pods..."
+            kubectl get svc proving-service -n sharing-sbom-system || true
+            kubectl get pods -n sharing-sbom-system -l app=proving-service || true
+            exit 1
+          fi
+          
           RESPONSE=$(curl -v -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
             --data-binary @request_payload.json \
+            --max-time 600 \
             -w "\nHTTP Status: %{http_code}\n" 2>&1)
           
           HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP Status:" | awk '{print $3}')
@@ -220,8 +237,10 @@ jobs:
           
           if [ "$HTTP_CODE" != "200" ]; then
             echo "ERROR: Proving service returned non-200 status code"
-            echo "Response:"
-            echo "$RESPONSE_BODY"
+            echo "Full response:"
+            echo "$RESPONSE"
+            echo "Checking service logs..."
+            kubectl logs -n sharing-sbom-system -l app=proving-service --tail=50 || true
             exit 1
           fi
           
