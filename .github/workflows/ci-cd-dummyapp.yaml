@@ -382,7 +382,7 @@ jobs:
           IPFS_CID="${{ steps.ipfs.outputs.ipfs_cid }}"
           IS_VALID="${{ steps.prove.outputs.is_valid }}"
           BANNED_LIST_HASH="${{ steps.prove.outputs.banned_list_hash }}"
-          PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+          PRIVATE_KEY="0xea6c44ac03bff858b476bba40716402b03e41b8e97e276d1baec7c37d42484a0"
           
           echo "Writing to blockchain..."
           echo "  Contract: $CONTRACT_ADDR"
@@ -416,11 +416,33 @@ jobs:
             
               const abi = [
                 "function storeSBOM(bytes32 hash, string image, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash) external",
+                "function getSBOM(bytes32 hash) external view returns (tuple(bytes32 hash, string image, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, uint256 timestamp, address submitter))",
+                "function exists(bytes32 hash) external view returns (bool)",
+                "function listHashes() external view returns (bytes32[])",
+                "event SBOMStored(bytes32 indexed hash, string image, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, address indexed submitter, uint256 timestamp)"
               ];
             
               const contract = new ethers.Contract(CONTRACT_ADDR, abi, wallet);
             
               const hashBytes32 = "0x" + SBOM_HASH;
+              
+              // Check if hash already exists
+              const exists = await contract.exists(hashBytes32);
+              if (exists) {
+                console.log("ERROR: SBOM hash already exists in contract");
+                console.log("Hash:", hashBytes32);
+                try {
+                  const entry = await contract.getSBOM(hashBytes32);
+                  console.log("Existing entry:");
+                  console.log("  Image:", entry.image);
+                  console.log("  Identifier:", entry.identifier);
+                  console.log("  IPFS CID:", entry.ipfsCid);
+                  console.log("  Timestamp:", new Date(Number(entry.timestamp) * 1000).toISOString());
+                } catch (e) {
+                  console.log("Could not retrieve entry details");
+                }
+                throw new Error("SBOM hash already stored. Each run needs a unique SBOM hash.");
+              }
               
               const u32s = IMAGE_ID_STR.split(",").map(s => parseInt(s.trim(), 10));
               if (u32s.length !== 8) {
@@ -456,7 +478,13 @@ jobs:
               console.log("Transaction confirmed:", receipt.hash);
               console.log(receipt.hash);
             } catch (error) {
-              console.error("Error:", error);
+              console.error("Error:", error.message || error);
+              if (error.reason) {
+                console.error("Reason:", error.reason);
+              }
+              if (error.data) {
+                console.error("Data:", error.data);
+              }
               process.exit(1);
             }
           })();
