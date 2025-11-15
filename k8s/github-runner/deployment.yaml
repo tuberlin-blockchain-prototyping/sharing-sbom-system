@@ -47,6 +47,17 @@ spec:
       containers:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
+        env:
+        - name: RUNNER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: github-runner-config
+              key: RUNNER_NAME
+        - name: RUNNER_LABELS
+          valueFrom:
+            configMapKeyRef:
+              name: github-runner-config
+              key: RUNNER_LABELS
         command: ["/bin/sh"]
         args:
           - -c
@@ -54,8 +65,8 @@ spec:
             TOKEN=$(cat /runner-token/token)
             ./config.sh --url https://github.com/tuberlin-blockchain-prototyping/sharing-sbom-system \
               --token $TOKEN \
-              --name kind-cluster-runner \
-              --labels self-hosted,kind-cluster,blockchain \
+              --name $RUNNER_NAME \
+              --labels $RUNNER_LABELS \
               --work /runner-work \
               --unattended \
               --replace

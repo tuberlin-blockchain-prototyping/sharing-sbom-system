@@ -59,16 +59,6 @@ ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o js
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-cd "$PROJECT_ROOT"
-
-docker build -t proving-service:latest -f proving-service/Dockerfile . || exit 1
-docker build -t verifier-service:latest -f verifier-service/Dockerfile . || exit 1
-docker build -t ipfs-service:latest -f ipfs-service/Dockerfile . || exit 1
-
-kind load docker-image proving-service:latest --name sharing-sbom-system || exit 1
-kind load docker-image verifier-service:latest --name sharing-sbom-system || exit 1
-kind load docker-image ipfs-service:latest --name sharing-sbom-system || exit 1
-
 kubectl apply -f "$PROJECT_ROOT/argocd/application.yaml"
 
 sleep 5

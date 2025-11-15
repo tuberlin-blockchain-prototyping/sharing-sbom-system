@@ -69,12 +69,14 @@ if ! kubectl get secret github-runner-secret -n github-runner &>/dev/null; then
     
     if ! kubectl get secret github-runner-secret -n github-runner &>/dev/null; then
         echo "Secret not found. Deploy manually:"
+        echo "  kubectl apply -f k8s/github-runner/configmap.yaml"
         echo "  kubectl apply -f k8s/github-runner/runner-rbac.yaml"
         echo "  kubectl apply -f k8s/github-runner/deployment.yaml"
         exit 0
     fi
 fi
 
+kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/configmap.yaml"
 kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/runner-rbac.yaml"
 kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/deployment.yaml"
 

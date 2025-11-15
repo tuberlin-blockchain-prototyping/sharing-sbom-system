@@ -49,7 +49,32 @@ This will:
 - Install ArgoCD
 - Deploy the ArgoCD application pointing to the `k8s/` folder
 
-### 2. Setup Blockchain and GitHub Runner
+
+### 2. Configure GitHub Runner Name
+
+Each person can customize their GitHub runner name. Edit `k8s/github-runner/configmap.yaml`:
+
+```yaml
+data:
+  RUNNER_NAME: "your-unique-runner-name"  # Change this to your name
+  RUNNER_LABELS: "self-hosted,kind-cluster,blockchain"  # Keep labels matching workflows
+```
+
+**Important**: The `RUNNER_LABELS` must match the `runs-on` labels in your GitHub Actions workflows (e.g., `runs-on: [self-hosted, kind-cluster, blockchain]`).
+
+### 3. Create GitHub Runner Secret
+
+After the namespace is created, create the GitHub Personal Access Token (PAT) secret:
+
+```bash
+kubectl create secret generic github-runner-secret \
+  --from-literal=GITHUB_TOKEN='your-github-pat-token' \
+  -n github-runner
+```
+
+Get a token from: https://github.com/settings/tokens/new (needs `repo` and `workflow` scopes)
+
+### 4. Setup Blockchain and GitHub Runner
 
 ```bash
 ./scripts/setup-blockchain-runner.sh
@@ -58,19 +83,7 @@ This will:
 This will:
 - Deploy Hardhat node to the `blockchain` namespace
 - Auto-deploy SBOMRegistry contract (address: `0x5FbDB2315678afecb367f032d93F642f64180aa3`)
-- Setup GitHub Actions runner (requires GitHub PAT token)
-
-**Note**: Before running this script, create the GitHub runner secret:
-
-```bash
-kubectl create secret generic github-runner-secret \
-  --from-literal=GITHUB_TOKEN='your-github-pat-token' \
-  -n github-runner
-```
-
-### 3. Build and Deploy Microservices
-
-The setup script automatically builds and loads Docker images into the Kind cluster. 
+- Deploy GitHub Actions runner (will wait for secret if not present)
 
 ## CI/CD Workflow
 
