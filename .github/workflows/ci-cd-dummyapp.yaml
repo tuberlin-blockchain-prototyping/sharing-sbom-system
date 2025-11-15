@@ -200,17 +200,17 @@ jobs:
           
           BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
           
-          REQUEST_PAYLOAD=$(jq -n \
+          jq -n \
             --slurpfile sbom "$SBOM_FILE" \
             --argjson banned_list "$BANNED_LIST" \
-            '{sbom: $sbom[0], banned_list: $banned_list}')
+            '{sbom: $sbom[0], banned_list: $banned_list}' > request_payload.json
           
-          echo "Request payload size: $(echo "$REQUEST_PAYLOAD" | wc -c) bytes"
+          echo "Request payload size: $(wc -c < request_payload.json) bytes"
           echo "Calling proving-service..."
           
           RESPONSE=$(curl -s -X POST "$PROVING_SERVICE_URL/prove" \
             -H "Content-Type: application/json" \
-            -d "$REQUEST_PAYLOAD")
+            --data-binary @request_payload.json)
           
           echo "$RESPONSE" | jq .
           
