@@ -13,9 +13,11 @@ spec:
       labels:
         app: ipfs-service
     spec:
+      nodeSelector:
+        kubernetes.io/arch: amd64
       containers:
       - name: ipfs-service
-        image: acbdockeracc/ipfs-service:c189270
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/ipfs-service:initial
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

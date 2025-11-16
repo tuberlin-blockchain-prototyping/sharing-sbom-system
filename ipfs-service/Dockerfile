@@ -1,3 +1,4 @@
+# Multi-platform Python service
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -18,4 +19,3 @@ ENV IPFS_PROTOCOL=http
 ENV DB_PATH=/data/ipfs.db
 
 CMD ["python", "app.py"]
-
