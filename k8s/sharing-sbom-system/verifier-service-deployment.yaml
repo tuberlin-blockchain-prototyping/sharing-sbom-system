@@ -17,7 +17,7 @@ spec:
         kubernetes.io/arch: amd64
       containers:
       - name: verifier-service
-        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/verifier-service:initial
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/verifier-service:bb31564
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
