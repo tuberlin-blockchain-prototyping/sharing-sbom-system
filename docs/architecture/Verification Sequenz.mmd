@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber 1
+
+    participant Customer
+    participant Blockchain as Blockchain (Smart Contract)
+    participant IPFS_Service as IPFS Service
+    participant Verifier_Service as Verifier Service
+
+    note right of Customer: 1. Verify Github Attestion (H(SBOM), Software Digest, Transaction Receipt..)
+    note right of Customer: 1.2. Computes Software Digest if Customer has binary of Software
+
+    Customer->>Blockchain: 2. Request Blockchain data using Transaction Receipt Information
+    activate Blockchain
+    Blockchain-->>Customer: 3. Meta data (incl. ipfsCid)
+    deactivate Blockchain
+
+    note right of Customer: 3.2. Verify Software Digest (local vs. blockchain)
+
+    Customer->>IPFS_Service: 4. Request Proof (using H(SBOM,ipfsCid))
+    activate IPFS_Service
+    IPFS_Service-->>Customer: 5. Send proof
+    deactivate IPFS_Service
+
+    Customer->>Verifier_Service: 6. Verify request (proof)
+    activate Verifier_Service
+    note right of Verifier_Service: Validate ZK proof
+    Verifier_Service-->>Customer: 7. Final verification result
+    deactivate Verifier_Service
