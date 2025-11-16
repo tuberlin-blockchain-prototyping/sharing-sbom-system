@@ -48,6 +48,7 @@ jobs:
           context: .
           file: ./proving-service/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ secrets.DOCKER_USERNAME }}/proving-service:${{ steps.tag.outputs.tag }},${{ secrets.DOCKER_USERNAME }}/proving-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -58,6 +59,7 @@ jobs:
           context: .
           file: ./verifier-service/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ secrets.DOCKER_USERNAME }}/verifier-service:${{ steps.tag.outputs.tag }},${{ secrets.DOCKER_USERNAME }}/verifier-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -68,6 +70,7 @@ jobs:
           context: .
           file: ./ipfs-service/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ secrets.DOCKER_USERNAME }}/ipfs-service:${{ steps.tag.outputs.tag }},${{ secrets.DOCKER_USERNAME }}/ipfs-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -98,4 +101,3 @@ jobs:
         run: |
           echo "Waiting for ArgoCD to sync and deploy microservices..."
           sleep 30
-
