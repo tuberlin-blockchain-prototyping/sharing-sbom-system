@@ -80,14 +80,14 @@ jobs:
           DOCKER_USERNAME="${{ secrets.DOCKER_USERNAME }}"
           IMAGE_TAG="${{ steps.tag.outputs.tag }}"
           
-          sed -i "s|image: proving-service:latest|image: ${DOCKER_USERNAME}/proving-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/proving-service-deployment.yaml
-          sed -i "s|imagePullPolicy: Never|imagePullPolicy: IfNotPresent|g" k8s/sharing-sbom-system/proving-service-deployment.yaml
+          # Update proving-service image tag (match any existing tag)
+          sed -i "s|image: ${DOCKER_USERNAME}/proving-service:.*|image: ${DOCKER_USERNAME}/proving-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/proving-service-deployment.yaml
           
-          sed -i "s|image: verifier-service:latest|image: ${DOCKER_USERNAME}/verifier-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/verifier-service-deployment.yaml
-          sed -i "s|imagePullPolicy: Never|imagePullPolicy: IfNotPresent|g" k8s/sharing-sbom-system/verifier-service-deployment.yaml
+          # Update verifier-service image tag (match any existing tag)
+          sed -i "s|image: ${DOCKER_USERNAME}/verifier-service:.*|image: ${DOCKER_USERNAME}/verifier-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/verifier-service-deployment.yaml
           
-          sed -i "s|image: ipfs-service:latest|image: ${DOCKER_USERNAME}/ipfs-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/ipfs-service-deployment.yaml
-          sed -i "s|imagePullPolicy: Never|imagePullPolicy: IfNotPresent|g" k8s/sharing-sbom-system/ipfs-service-deployment.yaml
+          # Update ipfs-service image tag (match any existing tag)
+          sed -i "s|image: ${DOCKER_USERNAME}/ipfs-service:.*|image: ${DOCKER_USERNAME}/ipfs-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/ipfs-service-deployment.yaml
 
       - name: Commit and push changes
         run: |

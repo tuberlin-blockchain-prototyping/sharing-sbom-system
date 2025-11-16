@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: verifier-service
-        image: acbdockeracc/verifier-service:6a978bf
+        image: acbdockeracc/verifier-service:c189270
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
