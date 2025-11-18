@@ -86,6 +86,40 @@ kubectl create secret generic github-runner-secret \
 Get a token from: https://github.com/settings/tokens/new (needs `repo` and `workflow` scopes)
 
 
+## Local Development and Testing
+
+### Test Changes Without Pushing to GitHub
+
+When developing locally, you can build and deploy the proving-service to your Kind cluster without pushing to GitHub:
+
+```bash
+# Quick start - interactive guided testing
+./scripts/quick-test.sh
+
+# Or manual build and deploy
+./scripts/local-build-and-deploy.sh
+```
+
+This will:
+- Build Docker image with your latest code
+- Load image into Kind cluster
+- Deploy to `sharing-sbom-system` namespace (bypassing ArgoCD)
+- Test the deployment
+
+**See [`LOCAL_TESTING_GUIDE.md`](LOCAL_TESTING_GUIDE.md) for detailed instructions.**
+
+### Revert to ArgoCD Management
+
+Once you've tested and are ready to push:
+
+```bash
+# Delete local deployment
+kubectl delete deployment proving-service -n sharing-sbom-system
+
+# ArgoCD will automatically recreate from Git
+# Or manually sync in ArgoCD UI
+```
+
 ## CI/CD Workflow
 
 The GitHub Actions workflow (`.github/workflows/ci-cd.yaml`) performs:

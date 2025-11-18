@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+// ============================================================================
+// Legacy SBOM validation models (for /prove endpoint)
+// ============================================================================
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct BannedListInfo {
     pub source: String,
@@ -36,3 +40,36 @@ pub struct ProveResponse {
     pub proof_info: serde_json::Value,
 }
 
+// Merkle Tree validation models (for /prove-merkle endpoint)
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MerkleProof {
+    pub purl: String,
+    pub value: String,
+    pub siblings: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MerklePublicInputs {
+    pub root_hash: [u8; 32],
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MerklePublicOutputs {
+    pub root_hash: [u8; 32],
+    pub is_valid: bool,
+    pub verified_count: usize,
+}
+
+#[derive(Deserialize)]
+pub struct ProveMerkleRequest {
+    pub root: String,
+    pub merkle_proofs: Vec<MerkleProof>,
+}
+
+#[derive(Serialize)]
+pub struct ProveMerkleResponse {
+    pub proof: String,
+    pub root_hash: String,
+    pub image_id: Vec<String>,
+    pub proof_info: serde_json::Value,
+}

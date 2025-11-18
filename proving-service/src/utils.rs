@@ -1,6 +1,21 @@
 use sha2::{Digest, Sha256};
 use serde_json::Value;
 
+// Re-export shared merkle utilities with renamed functions
+pub use sbom_common::{
+    hash_value as merkle_hash_value,
+    hash_pair as merkle_hash_pair,
+    compute_purl_hash as merkle_compute_purl_hash,
+};
+
+/// Wrapper around sbom_common::hex_to_bytes32 that returns String errors for compatibility
+pub fn hex_to_bytes32(hex_str: &str) -> Result<[u8; 32], String> {
+    sbom_common::hex_to_bytes32(hex_str).map_err(|e| match e {
+        sbom_common::HexError::TooShort => "Hex string too short".to_string(),
+        sbom_common::HexError::InvalidCharacter => "Invalid hex character".to_string(),
+    })
+}
+
 pub fn compute_hash(data: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(data.as_bytes());
