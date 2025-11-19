@@ -6,6 +6,10 @@ pub use sbom_common::{
     hash_value as merkle_hash_value,
     hash_pair as merkle_hash_pair,
     compute_purl_hash as merkle_compute_purl_hash,
+    bitmap_bit,
+    path_bit,
+    count_bitmap_ones,
+    DEFAULTS,
 };
 
 /// Wrapper around sbom_common::hex_to_bytes32 that returns String errors for compatibility

@@ -163,3 +163,141 @@ The proof proves that:
 
 For detailed implementation information, see [MERKLE_MIGRATION.md](MERKLE_MIGRATION.md).
 
+### `POST /prove-merkle-compact` (Bandwidth-Optimized Sparse Merkle Tree Validation)
+Generate a ZKP proof for Sparse Merkle Tree validation using **bitmap-compressed** merkle proofs. This endpoint reduces bandwidth by only transmitting non-default sibling hashes, using a bitmap to indicate which siblings are provided vs using hardcoded DEFAULTS.
+
+**Request:**
+```json
+{
+  "depth": 256,
+  "root": "abd19dac7eeb8f1e98993a45d861b7877536f0c53fa0a9b7a1ceca098070d793",
+  "merkle_proofs": [
+    {
+      "purl": "pkg:maven/org.apache.struts/struts2-core@2.5.10",
+      "value": "0",
+      "siblings": [
+        "b9d7d779b9c4accdc2a5f8d1f370c2d0a0e5e54fec517bb875117a8f10efa9e6",
+        "f07e3d9666f2a2288cbd7367b53d414d2ddcd39e94041d4c664020eeea49bb8e",
+        ...
+      ],
+      "leaf_index": "120c5ea2cd7ffe1cc60816f7e8456d68cf2407c8b13cc04ff757be983ceeabbf",
+      "bitmap": "00000000000000000000000000000000000000000000000000000000000000ff"
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "proof": "<base64-encoded-proof>",
+  "root_hash": "abd19dac7eeb8f1e98993a45d861b7877536f0c53fa0a9b7a1ceca098070d793",
+  "image_id": ["12345678", ...],
+  "proof_info": {
+    "root_hash": "abd19dac...",
+    "is_valid": true,
+    "verified_count": 2,
+    "total_proofs": 2,
+    "proof_type": "compact",
+    "image_id": [...]
+  }
+}
+```
+
+**Key Differences from `/prove-merkle`:**
+- **Condensed Siblings**: Only non-default siblings are provided (array length = number of 1-bits in bitmap)
+- **Bitmap Field**: 32-byte hex-encoded bit-packed array indicating which siblings are provided (1) vs default (0)
+- **Leaf Index**: Pre-computed SHA-256 hash of PURL (eliminates guest-side hashing)
+- **Bandwidth Savings**: Typical proof size reduced from ~8KB to ~256B-1.6KB
+
+For detailed documentation, see [COMPACT_MERKLE_PROOF.md](COMPACT_MERKLE_PROOF.md).
+
+### `POST /debug/verify-merkle` (Debug Endpoint - No ZK)
+Host-side Merkle proof verification without generating ZK proofs. Useful for testing and debugging proof generation.
+
+**Single Proof Request:**
+```json
+{
+  "root": "abd19dac7eeb8f1e98993a45d861b7877536f0c53fa0a9b7a1ceca098070d793",
+  "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+  "value": "0",
+  "siblings": ["66687aadf862bd776c...", "2eeb74a6177f588d80...", ...]
+}
+```
+
+**Batch Request:**
+```json
+{
+  "root": "abd19dac7eeb8f1e98993a45d861b7877536f0c53fa0a9b7a1ceca098070d793",
+  "merkle_proofs": [
+    {
+      "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+      "value": "0",
+      "siblings": [...]
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "computed_root": "abd19dac...",
+  "expected_root": "abd19dac...",
+  "matches": true
+}
+```
+
+### `POST /debug/verify-merkle-compact` (Debug Endpoint - No ZK)
+Host-side compact Merkle proof verification without generating ZK proofs. Supports bitmap-compressed proofs.
+
+**Single Proof Request:**
+```json
+{
+  "root": "abd19dac7eeb8f1e98993a45d861b7877536f0c53fa0a9b7a1ceca098070d793",
+  "purl": "pkg:maven/org.apache.struts/struts2-core@2.5.10",
+  "value": "0",
+  "leaf_index": "120c5ea2cd7ffe1cc60816f7e8456d68cf2407c8b13cc04ff757be983ceeabbf",
+  "siblings": ["b9d7d779b9c4accdc2a5f8d1f370c2d0a0e5e54fec517bb875117a8f10efa9e6", ...],
+  "bitmap": "00000000000000000000000000000000000000000000000000000000000000ff"
+}
+```
+
+**Batch Request:**
+```json
+{
+  "depth": 256,
+  "root": "abd19dac7eeb8f1e98993a45d861b7877536f0c53fa0a9b7a1ceca098070d793",
+  "merkle_proofs": [
+    {
+      "purl": "pkg:maven/org.apache.struts/struts2-core@2.5.10",
+      "value": "0",
+      "leaf_index": "120c5ea2cd7ffe1cc60816f7e8456d68cf2407c8b13cc04ff757be983ceeabbf",
+      "siblings": [...],
+      "bitmap": "00000000000000000000000000000000000000000000000000000000000000ff"
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "computed_root": "abd19dac...",
+  "expected_root": "abd19dac...",
+  "matches": true,
+  "purl": "pkg:maven/org.apache.struts/struts2-core@2.5.10",
+  "value": "0",
+  "leaf_index": "120c5ea2cd7ffe1cc60816f7e8456d68cf2407c8b13cc04ff757be983ceeabbf",
+  "bitmap_ones": 8,
+  "used_provided_siblings": 8,
+  "used_defaults": 248
+}
+```
+
+**Key Features:**
+- No ZK proof generation (fast, for testing only)
+- Shows how many siblings came from bitmap vs DEFAULTS
+- Validates bitmap encoding and sibling reconstruction
+- Same verification logic as guest code
+

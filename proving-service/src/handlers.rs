@@ -202,6 +202,161 @@ pub async fn prove_merkle(req: web::Json<ProveMerkleRequest>) -> ActixResult<Htt
     Ok(HttpResponse::Ok().json(response))
 }
 
+// ============================================================================
+// Compact Merkle Tree validation endpoint (bitmap-compressed proofs)
+// ============================================================================
+
+pub async fn prove_merkle_compact(req: web::Json<crate::models::ProveCompactMerkleRequest>) -> ActixResult<HttpResponse> {
+    use crate::utils::{bitmap_bit, count_bitmap_ones, DEFAULTS};
+
+    tracing::info!("Received compact merkle prove request");
+
+    // Validate depth is exactly 256
+    if req.depth != 256 {
+        return Err(actix_web::error::ErrorBadRequest(
+            format!("Depth must be 256, got {}", req.depth)
+        ));
+    }
+
+    if req.merkle_proofs.is_empty() {
+        return Err(actix_web::error::ErrorBadRequest("At least one merkle proof is required"));
+    }
+
+    let root_hash = hex_to_bytes32(&req.root)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid root hash: {}", e)))?;
+
+    // Validate each compact proof
+    for (_i, proof) in req.merkle_proofs.iter().enumerate() {
+        // Validate bitmap is exactly 64 hex chars (32 bytes)
+        let bitmap_hex = proof.bitmap.strip_prefix("0x").unwrap_or(&proof.bitmap);
+        if bitmap_hex.len() != 64 {
+            return Err(actix_web::error::ErrorBadRequest(
+                format!("Bitmap must be valid 64-character hex string (32 bytes) for purl '{}'", proof.purl)
+            ));
+        }
+
+        // Decode bitmap
+        let bitmap = hex_to_bytes32(&proof.bitmap)
+            .map_err(|e| actix_web::error::ErrorBadRequest(
+                format!("Invalid bitmap hex for purl '{}': {}", proof.purl, e)
+            ))?;
+
+        // Count expected siblings based on bitmap
+        let expected_sibling_count = count_bitmap_ones(&bitmap);
+        if proof.siblings.len() != expected_sibling_count {
+            return Err(actix_web::error::ErrorBadRequest(
+                format!("Expected {} siblings based on bitmap, got {} for purl '{}'",
+                    expected_sibling_count, proof.siblings.len(), proof.purl)
+            ));
+        }
+
+        // Validate leaf_index format (64 hex chars)
+        let leaf_index_hex = proof.leaf_index.strip_prefix("0x").unwrap_or(&proof.leaf_index);
+        if leaf_index_hex.len() != 64 {
+            return Err(actix_web::error::ErrorBadRequest(
+                format!("Leaf index must be valid 64-character hex string (32 bytes) for purl '{}'", proof.purl)
+            ));
+        }
+        hex_to_bytes32(&proof.leaf_index)
+            .map_err(|e| actix_web::error::ErrorBadRequest(
+                format!("Invalid leaf_index hex for purl '{}': {}", proof.purl, e)
+            ))?;
+
+        // Validate all provided siblings are valid hex and don't match DEFAULTS
+        let mut sibling_idx = 0;
+        for d in 0..256 {
+            if bitmap_bit(&bitmap, d) == 1 {
+                if sibling_idx >= proof.siblings.len() {
+                    return Err(actix_web::error::ErrorBadRequest(
+                        format!("Not enough siblings for bitmap at depth {} for purl '{}'", d, proof.purl)
+                    ));
+                }
+
+                let sibling_hash = hex_to_bytes32(&proof.siblings[sibling_idx])
+                    .map_err(|e| actix_web::error::ErrorBadRequest(
+                        format!("Invalid sibling at depth {} for purl '{}': {}", d, proof.purl, e)
+                    ))?;
+
+                // Strict validation: provided sibling must not match DEFAULTS[d]
+                if sibling_hash == DEFAULTS[d] {
+                    return Err(actix_web::error::ErrorBadRequest(
+                        format!("Sibling at depth {} for purl '{}' matches DEFAULTS[{}] - must use bitmap bit 0 instead",
+                            d, proof.purl, d)
+                    ));
+                }
+
+                sibling_idx += 1;
+            }
+        }
+    }
+
+    let public_inputs = crate::models::MerklePublicInputs {
+        root_hash,
+    };
+
+    let proofs_json = serde_json::to_string(&req.merkle_proofs)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid proofs JSON: {}", e)))?;
+
+    tracing::info!(
+        "Processing {} compact non-membership proofs for root: {}",
+        req.merkle_proofs.len(),
+        req.root
+    );
+
+    let env = ExecutorEnv::builder()
+        .write(&proofs_json)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write proofs: {}", e)))?
+        .write(&public_inputs)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write inputs: {}", e)))?
+        .build()
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to build env: {}", e)))?;
+
+    tracing::info!("Generating proof for compact merkle tree root: {}", req.root);
+
+    let prover = default_prover();
+    let receipt = prover
+        .prove(env, SBOM_VALIDATOR_ELF)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Proof generation failed: {}", e)))?
+        .receipt;
+
+    let output: crate::models::MerklePublicOutputs = receipt
+        .journal
+        .decode()
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to decode output: {}", e)))?;
+
+    tracing::info!("Compact proof generated successfully. Valid: {}, Verified: {}/{}",
+        output.is_valid, output.verified_count, req.merkle_proofs.len());
+
+    receipt
+        .verify(SBOM_VALIDATOR_ID)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Receipt verification failed: {}", e)))?;
+
+    let receipt_bytes: Vec<u8> = to_vec(&receipt)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to serialize receipt: {}", e)))?
+        .iter()
+        .flat_map(|&x| x.to_le_bytes())
+        .collect();
+
+    let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
+    let proof_info = serde_json::json!({
+        "root_hash": hex::encode(output.root_hash),
+        "is_valid": output.is_valid,
+        "verified_count": output.verified_count,
+        "total_proofs": req.merkle_proofs.len(),
+        "proof_type": "compact",
+        "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
+    });
+
+    let response = crate::models::ProveCompactMerkleResponse {
+        proof: proof_base64,
+        root_hash: hex::encode(root_hash),
+        image_id: SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect(),
+        proof_info,
+    };
+
+    Ok(HttpResponse::Ok().json(response))
+}
+
 // Debug endpoint: host-side merkle verification (no ZK, just for verifying correctness during development)
 #[derive(serde::Deserialize)]
 pub struct DebugVerifyMerkleRequest {
@@ -287,6 +442,151 @@ fn verify_one(root_hex: &str, purl: &str, value: &str, siblings: &[String]) -> R
         "computed_root": computed_root_hex,
         "expected_root": root_hex,
         "matches": matches,
+    }))
+}
+
+// ============================================================================
+// Debug endpoint: host-side compact merkle verification (no ZK)
+// ============================================================================
+
+#[derive(serde::Deserialize)]
+pub struct DebugVerifyCompactMerkleRequest {
+    pub root: String,
+    pub purl: String,
+    pub value: String,
+    pub leaf_index: String,
+    pub siblings: Vec<String>,
+    pub bitmap: String,
+}
+
+pub async fn debug_verify_merkle_compact(body: web::Json<serde_json::Value>) -> ActixResult<HttpResponse> {
+    let value = body.into_inner();
+
+    // Try to parse as single-proof first
+    if let Ok(req) = serde_json::from_value::<DebugVerifyCompactMerkleRequest>(value.clone()) {
+        let result = verify_one_compact(&req.root, &req.purl, &req.value, &req.leaf_index, &req.siblings, &req.bitmap)?;
+        return Ok(HttpResponse::Ok().json(result));
+    }
+
+    // Try to parse as batch (same shape as /prove-merkle-compact)
+    let batch: crate::models::ProveCompactMerkleRequest = serde_json::from_value(value)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!(
+            "Json deserialize error: {}. Expected either single-proof {{root,purl,value,leaf_index,siblings,bitmap}} or batch {{depth,root,merkle_proofs:[...]}}.",
+            e
+        )))?;
+
+    if batch.depth != 256 {
+        return Err(actix_web::error::ErrorBadRequest(format!("Depth must be 256, got {}", batch.depth)));
+    }
+
+    let root = batch.root.clone();
+    if batch.merkle_proofs.is_empty() {
+        return Err(actix_web::error::ErrorBadRequest("merkle_proofs must not be empty"));
+    }
+
+    // Verify each proof and collect results
+    let mut results = Vec::with_capacity(batch.merkle_proofs.len());
+    for (idx, mp) in batch.merkle_proofs.iter().enumerate() {
+        match verify_one_compact(&root, &mp.purl, &mp.value, &mp.leaf_index, &mp.siblings, &mp.bitmap) {
+            Ok(mut r) => {
+                r["index"] = serde_json::json!(idx);
+                r["purl"] = serde_json::json!(&mp.purl);
+                results.push(r);
+            }
+            Err(e) => {
+                results.push(serde_json::json!({
+                    "index": idx,
+                    "purl": mp.purl,
+                    "error": e.to_string(),
+                }));
+            }
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "root": root,
+        "count": results.len(),
+        "results": results,
+        "note": "Compact proof verification using bitmap-compressed siblings. Bitmap bit d=1 uses provided sibling, bit d=0 uses DEFAULTS[d]. Path determined by leaf_index (pre-computed SHA256 of PURL). Big-endian bit interpretation."
+    })))
+}
+
+fn verify_one_compact(
+    root_hex: &str,
+    purl: &str,
+    value: &str,
+    leaf_index_hex: &str,
+    siblings: &[String],
+    bitmap_hex: &str,
+) -> Result<serde_json::Value, actix_web::Error> {
+    use crate::utils::{bitmap_bit, path_bit, count_bitmap_ones, DEFAULTS, merkle_hash_value, merkle_hash_pair};
+
+    let root = hex_to_bytes32(root_hex)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid root: {}", e)))?;
+
+    let bitmap = hex_to_bytes32(bitmap_hex)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid bitmap: {}", e)))?;
+
+    let leaf_index = hex_to_bytes32(leaf_index_hex)
+        .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid leaf_index: {}", e)))?;
+
+    // Validate sibling count matches bitmap
+    let expected_sibling_count = count_bitmap_ones(&bitmap);
+    if siblings.len() != expected_sibling_count {
+        return Err(actix_web::error::ErrorBadRequest(
+            format!("Expected {} siblings based on bitmap, got {}", expected_sibling_count, siblings.len())
+        ));
+    }
+
+    // Start with leaf hash
+    let mut current = merkle_hash_value(value);
+    let mut siblings_iter = siblings.iter();
+    let mut used_defaults_count = 0;
+    let mut used_provided_count = 0;
+
+    // Climb the tree for 256 levels
+    for d in 0..256 {
+        let sibling_hash = if bitmap_bit(&bitmap, d) == 1 {
+            // Use provided sibling
+            used_provided_count += 1;
+            match siblings_iter.next() {
+                Some(sib_hex) => hex_to_bytes32(sib_hex)
+                    .map_err(|e| actix_web::error::ErrorBadRequest(
+                        format!("Invalid sibling at depth {}: {}", d, e)
+                    ))?,
+                None => return Err(actix_web::error::ErrorBadRequest(
+                    format!("Not enough siblings for bitmap at depth {}", d)
+                )),
+            }
+        } else {
+            // Use DEFAULTS[d]
+            used_defaults_count += 1;
+            DEFAULTS[d]
+        };
+
+        // Determine path direction from leaf_index
+        let path_direction = path_bit(&leaf_index, d);
+
+        current = if path_direction == 0 {
+            merkle_hash_pair(&current, &sibling_hash)
+        } else {
+            merkle_hash_pair(&sibling_hash, &current)
+        };
+    }
+
+    let computed_root_hex = hex::encode(current);
+    let matches = current == root;
+
+    Ok(serde_json::json!({
+        "computed_root": computed_root_hex,
+        "expected_root": root_hex,
+        "matches": matches,
+        "purl": purl,
+        "value": value,
+        "leaf_index": leaf_index_hex,
+        "bitmap_ones": expected_sibling_count,
+        "used_provided_siblings": used_provided_count,
+        "used_defaults": used_defaults_count,
     }))
 }
 

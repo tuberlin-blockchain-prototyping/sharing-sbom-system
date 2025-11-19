@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
 // Import shared merkle utilities from common crate
-use sbom_common::{hash_value, hash_pair, compute_purl_hash, hex_to_bytes32};
+use sbom_common::{hash_value, hash_pair, compute_purl_hash, hex_to_bytes32, bitmap_bit, path_bit, DEFAULTS};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct BannedListInfo {
@@ -63,13 +63,31 @@ struct MerklePublicOutputs {
     verified_count: usize,
 }
 
+// ============================================================================
+// Compact Merkle Tree validation structures
+// ============================================================================
+
+#[derive(Serialize, Deserialize, Clone)]
+struct CompactMerkleProof {
+    purl: String,
+    value: String,
+    leaf_index: String,  // Hex-encoded 32 bytes
+    siblings: Vec<String>,  // Condensed array, only non-default siblings
+    bitmap: String,  // Hex-encoded 32 bytes (256 bits packed)
+}
+
 fn main() {
     // Try to determine which validation path to take by reading the first input
     let first_input: String = env::read();
 
-    if first_input.contains("\"purl\"") && first_input.contains("\"siblings\"") {
+    if first_input.contains("\"bitmap\"") && first_input.contains("\"leaf_index\"") {
+        // Compact merkle proof validation
+        run_compact_merkle_validation(first_input);
+    } else if first_input.contains("\"purl\"") && first_input.contains("\"siblings\"") {
+        // Standard merkle proof validation
         run_merkle_validation(first_input);
     } else {
+        // SBOM validation
         run_sbom_validation(first_input);
     }
 }
@@ -271,3 +289,99 @@ fn commit_merkle_result(
     };
     env::commit(&output);
 }
+
+// ============================================================================
+// Compact Merkle Tree validation path
+// ============================================================================
+
+fn run_compact_merkle_validation(proofs_json: String) {
+    let public_inputs: MerklePublicInputs = env::read();
+
+    // Parse the compact merkle proofs
+    let proofs: Vec<CompactMerkleProof> = match serde_json::from_str(&proofs_json) {
+        Ok(p) => p,
+        Err(_) => {
+            commit_merkle_result(&public_inputs.root_hash, false, 0);
+            return;
+        }
+    };
+
+    // Validate all non-membership proofs using compact format
+    let (is_valid, verified_count) = validate_compact_non_membership_proofs(&proofs, &public_inputs.root_hash);
+
+    commit_merkle_result(&public_inputs.root_hash, is_valid, verified_count);
+}
+
+/// Validate compact non-membership proofs against the sparse merkle tree
+/// Each proof uses a bitmap to indicate which siblings are provided vs using DEFAULTS
+fn validate_compact_non_membership_proofs(
+    proofs: &[CompactMerkleProof],
+    root_hash: &[u8; 32],
+) -> (bool, usize) {
+    let mut verified_count = 0;
+
+    for proof in proofs {
+        // Assert non-membership - value must be 0
+        if proof.value != "0" {
+            return (false, verified_count);
+        }
+
+        // Parse bitmap (hex string to 32 bytes)
+        let bitmap = match hex_to_bytes32(&proof.bitmap) {
+            Ok(b) => b,
+            Err(_) => return (false, verified_count),
+        };
+
+        // Parse leaf_index (hex string to 32 bytes)
+        let leaf_index = match hex_to_bytes32(&proof.leaf_index) {
+            Ok(li) => li,
+            Err(_) => return (false, verified_count),
+        };
+
+        // Calculate leaf hash by hashing the value
+        let mut current_hash = hash_value(&proof.value);
+
+        // Create iterator over provided siblings
+        let mut siblings_iter = proof.siblings.iter();
+
+        // Climb the tree for 256 levels
+        for d in 0..256 {
+            // Determine sibling at this depth
+            // DEFAULTS array is indexed by depth: DEFAULTS[0] = leaf level, DEFAULTS[255] = near root
+            let sibling_hash = if bitmap_bit(&bitmap, d) == 1 {
+                // Bit is set: use provided sibling
+                match siblings_iter.next() {
+                    Some(sibling_hex) => match hex_to_bytes32(sibling_hex) {
+                        Ok(h) => h,
+                        Err(_) => return (false, verified_count),
+                    },
+                    None => return (false, verified_count), // Not enough siblings provided
+                }
+            } else {
+                // Bit is 0: use default hash at this depth
+                DEFAULTS[d]  // Safe: d in 0..256, DEFAULTS is [_; 257] (indices 0..256)
+            };
+
+            // Determine the path direction at this depth using leaf_index
+            let path_direction = path_bit(&leaf_index, d);
+
+            current_hash = if path_direction == 0 {
+                // current_hash is left child
+                hash_pair(&current_hash, &sibling_hash)
+            } else {
+                // current_hash is right child
+                hash_pair(&sibling_hash, &current_hash)
+            };
+        }
+
+        // Computed root must match expected root
+        if current_hash != *root_hash {
+            return (false, verified_count);
+        }
+
+        verified_count += 1;
+    }
+
+    (true, verified_count)
+}
+

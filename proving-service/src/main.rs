@@ -21,7 +21,9 @@ async fn main() -> std::io::Result<()> {
             .route("/health", web::get().to(handlers::health))
             .route("/prove", web::post().to(handlers::prove))
             .route("/prove-merkle", web::post().to(handlers::prove_merkle))
+            .route("/prove-merkle-compact", web::post().to(handlers::prove_merkle_compact))
             .route("/debug/verify-merkle", web::post().to(handlers::debug_verify_merkle))
+            .route("/debug/verify-merkle-compact", web::post().to(handlers::debug_verify_merkle_compact))
     })
     .bind(("0.0.0.0", config.port))?
     .run()
