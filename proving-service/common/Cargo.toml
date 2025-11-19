@@ -1,0 +1,12 @@
+[package]
+name = "sbom-common"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sha2 = { version = "0.10", default-features = false }
+
+[features]
+default = ["std"]
+std = []
+
