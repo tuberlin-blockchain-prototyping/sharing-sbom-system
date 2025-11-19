@@ -110,6 +110,9 @@ pub async fn prove(req: web::Json<ProveRequest>) -> ActixResult<HttpResponse> {
 
 // New Merkle Tree validation endpoint
 pub async fn prove_merkle(req: web::Json<ProveMerkleRequest>) -> ActixResult<HttpResponse> {
+    use std::time::Instant;
+
+    let start_time = Instant::now();
     tracing::info!("Received merkle prove request");
 
     if req.merkle_proofs.is_empty() {
@@ -159,6 +162,7 @@ pub async fn prove_merkle(req: web::Json<ProveMerkleRequest>) -> ActixResult<Htt
 
     tracing::info!("Generating proof for merkle tree root: {}", req.root);
 
+    let prove_start = Instant::now();
     let prover = default_prover();
     let receipt = prover
         .prove(env, SBOM_VALIDATOR_ELF)
@@ -183,6 +187,15 @@ pub async fn prove_merkle(req: web::Json<ProveMerkleRequest>) -> ActixResult<Htt
         .flat_map(|&x| x.to_le_bytes())
         .collect();
 
+    let generation_duration = prove_start.elapsed();
+    let total_duration = start_time.elapsed();
+    
+    tracing::info!(
+        "Proof generation took {:.2}s (total request: {:.2}s)",
+        generation_duration.as_secs_f64(),
+        total_duration.as_secs_f64()
+    );
+
     let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
     let proof_info = serde_json::json!({
         "root_hash": hex::encode(output.root_hash),
@@ -192,14 +205,50 @@ pub async fn prove_merkle(req: web::Json<ProveMerkleRequest>) -> ActixResult<Htt
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
     });
 
-    let response = ProveMerkleResponse {
-        proof: proof_base64,
-        root_hash: hex::encode(root_hash),
-        image_id: SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect(),
-        proof_info,
-    };
+    // Create proof data with timestamp and duration
+    let timestamp = chrono::Local::now();
+    let proof_data = serde_json::json!({
+        "timestamp": timestamp.to_rfc3339(),
+        "generation_duration_ms": generation_duration.as_millis(),
+        "total_duration_ms": total_duration.as_millis(),
+        "proof": proof_base64,
+        "root_hash": hex::encode(root_hash),
+        "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
+        "proof_info": proof_info,
+    });
 
-    Ok(HttpResponse::Ok().json(response))
+    // Create proofs directory if it doesn't exist
+    let proofs_dir = std::path::Path::new("proofs");
+    std::fs::create_dir_all(proofs_dir)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(
+            format!("Failed to create proofs directory: {}", e)
+        ))?;
+
+    // Generate filename with timestamp
+    let filename = format!(
+        "proof_information_{}.json",
+        timestamp.format("%Y%m%d_%H%M%S")
+    );
+    let filepath = proofs_dir.join(&filename);
+
+    // Write proof to file
+    std::fs::write(&filepath, serde_json::to_string_pretty(&proof_data).unwrap())
+        .map_err(|e| actix_web::error::ErrorInternalServerError(
+            format!("Failed to write proof file: {}", e)
+        ))?;
+
+    tracing::info!("Proof saved to: {}", filepath.display());
+
+    // Return simple success message
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Proof generated and saved successfully",
+        "filename": filename,
+        "filepath": filepath.display().to_string(),
+        "generation_duration_ms": generation_duration.as_millis(),
+        "is_valid": output.is_valid,
+        "verified_count": output.verified_count,
+    })))
 }
 
 // ============================================================================
@@ -208,7 +257,9 @@ pub async fn prove_merkle(req: web::Json<ProveMerkleRequest>) -> ActixResult<Htt
 
 pub async fn prove_merkle_compact(req: web::Json<crate::models::ProveCompactMerkleRequest>) -> ActixResult<HttpResponse> {
     use crate::utils::{bitmap_bit, count_bitmap_ones, DEFAULTS};
+    use std::time::Instant;
 
+    let start_time = Instant::now();
     tracing::info!("Received compact merkle prove request");
 
     // Validate depth is exactly 256
@@ -312,7 +363,8 @@ pub async fn prove_merkle_compact(req: web::Json<crate::models::ProveCompactMerk
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to build env: {}", e)))?;
 
     tracing::info!("Generating proof for compact merkle tree root: {}", req.root);
-
+    
+    let prove_start = Instant::now();
     let prover = default_prover();
     let receipt = prover
         .prove(env, SBOM_VALIDATOR_ELF)
@@ -337,6 +389,15 @@ pub async fn prove_merkle_compact(req: web::Json<crate::models::ProveCompactMerk
         .flat_map(|&x| x.to_le_bytes())
         .collect();
 
+    let generation_duration = prove_start.elapsed();
+    let total_duration = start_time.elapsed();
+    
+    tracing::info!(
+        "Proof generation took {:.2}s (total request: {:.2}s)",
+        generation_duration.as_secs_f64(),
+        total_duration.as_secs_f64()
+    );
+
     let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
     let proof_info = serde_json::json!({
         "root_hash": hex::encode(output.root_hash),
@@ -347,14 +408,50 @@ pub async fn prove_merkle_compact(req: web::Json<crate::models::ProveCompactMerk
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
     });
 
-    let response = crate::models::ProveCompactMerkleResponse {
-        proof: proof_base64,
-        root_hash: hex::encode(root_hash),
-        image_id: SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect(),
-        proof_info,
-    };
+    // Create proof data with timestamp and duration
+    let timestamp = chrono::Local::now();
+    let proof_data = serde_json::json!({
+        "timestamp": timestamp.to_rfc3339(),
+        "generation_duration_ms": generation_duration.as_millis(),
+        "total_duration_ms": total_duration.as_millis(),
+        "proof": proof_base64,
+        "root_hash": hex::encode(root_hash),
+        "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
+        "proof_info": proof_info,
+    });
 
-    Ok(HttpResponse::Ok().json(response))
+    // Create proofs directory if it doesn't exist
+    let proofs_dir = std::path::Path::new("proofs");
+    std::fs::create_dir_all(proofs_dir)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(
+            format!("Failed to create proofs directory: {}", e)
+        ))?;
+
+    // Generate filename with timestamp
+    let filename = format!(
+        "proof_information_{}.json",
+        timestamp.format("%Y%m%d_%H%M%S")
+    );
+    let filepath = proofs_dir.join(&filename);
+
+    // Write proof to file
+    std::fs::write(&filepath, serde_json::to_string_pretty(&proof_data).unwrap())
+        .map_err(|e| actix_web::error::ErrorInternalServerError(
+            format!("Failed to write proof file: {}", e)
+        ))?;
+
+    tracing::info!("Proof saved to: {}", filepath.display());
+
+    // Return simple success message
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "success": true,
+        "message": "Proof generated and saved successfully",
+        "filename": filename,
+        "filepath": filepath.display().to_string(),
+        "generation_duration_ms": generation_duration.as_millis(),
+        "is_valid": output.is_valid,
+        "verified_count": output.verified_count,
+    })))
 }
 
 // Debug endpoint: host-side merkle verification (no ZK, just for verifying correctness during development)
