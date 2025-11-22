@@ -22,12 +22,14 @@ This project demonstrates a complete CI/CD pipeline that:
 - **Hardhat Blockchain**: Local blockchain for storing SBOM hashes
 - **GitHub Runner**: Self-hosted runner for CI/CD execution
 - **ArgoCD**: GitOps tool for automated deployment
+- **Backstage**: Developer portal for service catalog and SBOM dashboard
 
 ### Namespaces
 
 - `blockchain`: Hardhat node deployment
 - `github-runner`: Self-hosted GitHub Actions runner
 - `sharing-sbom-system`: Microservices (proving, verifier, IPFS)
+- `backstage`: Backstage developer portal
 
 ## Prerequisites
 
@@ -85,6 +87,30 @@ kubectl create secret generic github-runner-secret \
 
 Get a token from: https://github.com/settings/tokens/new (needs `repo` and `workflow` scopes)
 
+### 5. (Optional) Deploy Backstage
+
+For a unified developer portal with service catalog and SBOM dashboard:
+
+```bash
+# Build Backstage image
+cd sbom
+docker build -t backstage:latest .
+
+# Create Backstage secrets
+kubectl create secret generic backstage-secrets \
+  --from-literal=GITHUB_TOKEN='your-github-token' \
+  -n backstage
+
+# Deploy Backstage
+kubectl apply -f k8s/backstage/
+
+# Access Backstage
+kubectl port-forward -n backstage svc/backstage 7007:7007
+```
+
+Open http://localhost:7007 in your browser.
+
+See [docs/BACKSTAGE.md](docs/BACKSTAGE.md) for detailed setup and usage.
 
 ## CI/CD Workflow
 

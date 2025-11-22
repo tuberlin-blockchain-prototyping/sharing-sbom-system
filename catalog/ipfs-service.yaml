@@ -1,0 +1,139 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ipfs-service
+  description: Python Flask microservice for storing and retrieving ZKP proofs on IPFS
+  annotations:
+    github.com/project-slug: tuberlin-blockchain-prototyping/sharing-sbom-system
+    backstage.io/kubernetes-id: ipfs-service
+    backstage.io/kubernetes-namespace: sharing-sbom-system
+    backstage.io/techdocs-ref: dir:./ipfs-service
+  tags:
+    - python
+    - flask
+    - ipfs
+    - storage
+  links:
+    - url: http://ipfs-service.sharing-sbom-system.svc.cluster.local/health
+      title: Health Check
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  providesApis:
+    - ipfs-api
+  dependsOn:
+    - resource:default/ipfs-node
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: ipfs-api
+  description: API for storing and retrieving proofs on IPFS
+  tags:
+    - rest
+    - ipfs
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: IPFS Service API
+      version: 1.0.0
+      description: Stores and retrieves ZKP proofs on IPFS
+    paths:
+      /health:
+        get:
+          summary: Health check
+          responses:
+            '200':
+              description: Service is healthy
+      /store:
+        post:
+          summary: Store proof on IPFS
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - proof
+                    - sbom_hash
+                  properties:
+                    proof:
+                      type: string
+                      description: Base64-encoded proof
+                    sbom_hash:
+                      type: string
+                      description: SHA256 hash of SBOM (64 hex chars)
+          responses:
+            '200':
+              description: Proof stored successfully
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      ipfs_cid:
+                        type: string
+                      sbom_hash:
+                        type: string
+      /retrieve/{sbom_hash}:
+        get:
+          summary: Retrieve proof from IPFS
+          parameters:
+            - name: sbom_hash
+              in: path
+              required: true
+              schema:
+                type: string
+          responses:
+            '200':
+              description: Proof retrieved successfully
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      proof:
+                        type: string
+                      ipfs_cid:
+                        type: string
+                      sbom_hash:
+                        type: string
+      /list:
+        get:
+          summary: List all stored mappings
+          parameters:
+            - name: limit
+              in: query
+              schema:
+                type: integer
+                default: 100
+            - name: offset
+              in: query
+              schema:
+                type: integer
+                default: 0
+          responses:
+            '200':
+              description: List of mappings
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: ipfs-node
+  description: IPFS Node for decentralized storage
+  tags:
+    - ipfs
+    - storage
+spec:
+  type: storage
+  owner: team-blockchain
+  system: sbom-sharing-system

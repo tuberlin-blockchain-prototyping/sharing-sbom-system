@@ -1,0 +1,104 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: proving-service
+  description: Rust microservice that generates Risc0 Zero-Knowledge Proofs for SBOM validation
+  annotations:
+    github.com/project-slug: tuberlin-blockchain-prototyping/sharing-sbom-system
+    backstage.io/kubernetes-id: proving-service
+    backstage.io/kubernetes-namespace: sharing-sbom-system
+    backstage.io/techdocs-ref: dir:./proving-service
+  tags:
+    - rust
+    - zkp
+    - risc0
+    - actix-web
+  links:
+    - url: http://proving-service.sharing-sbom-system.svc.cluster.local/health
+      title: Health Check
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  providesApis:
+    - proving-api
+  dependsOn:
+    - component:default/risc0-zkvm
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: proving-api
+  description: API for generating Zero-Knowledge Proofs of SBOM validation
+  tags:
+    - rest
+    - zkp
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Proving Service API
+      version: 1.0.0
+      description: Generates Zero-Knowledge Proofs for SBOM validation
+    paths:
+      /health:
+        get:
+          summary: Health check
+          responses:
+            '200':
+              description: Service is healthy
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: healthy
+      /prove:
+        post:
+          summary: Generate ZKP proof
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - sbom
+                    - banned_list
+                  properties:
+                    sbom:
+                      type: object
+                      description: CycloneDX SBOM JSON object
+                    banned_list:
+                      type: array
+                      items:
+                        type: string
+                      description: List of banned component identifiers
+          responses:
+            '200':
+              description: Proof generated successfully
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      proof:
+                        type: string
+                        description: Base64-encoded ZKP proof
+                      sbom_hash:
+                        type: string
+                        description: SHA256 hash of the SBOM
+                      image_id:
+                        type: array
+                        items:
+                          type: string
+                      proof_info:
+                        type: object

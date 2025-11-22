@@ -1,0 +1,101 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: verifier-service
+  description: Rust microservice that verifies Zero-Knowledge Proofs
+  annotations:
+    github.com/project-slug: tuberlin-blockchain-prototyping/sharing-sbom-system
+    backstage.io/kubernetes-id: verifier-service
+    backstage.io/kubernetes-namespace: sharing-sbom-system
+    backstage.io/techdocs-ref: dir:./verifier-service
+  tags:
+    - rust
+    - zkp
+    - risc0
+    - actix-web
+  links:
+    - url: http://verifier-service.sharing-sbom-system.svc.cluster.local/health
+      title: Health Check
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  providesApis:
+    - verifier-api
+  dependsOn:
+    - component:default/risc0-zkvm
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: verifier-api
+  description: API for verifying Zero-Knowledge Proofs
+  tags:
+    - rest
+    - zkp
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  definition: |
+    openapi: 3.0.0
+    info:
+      title: Verifier Service API
+      version: 1.0.0
+      description: Verifies Zero-Knowledge Proofs of SBOM validation
+    paths:
+      /health:
+        get:
+          summary: Health check
+          responses:
+            '200':
+              description: Service is healthy
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: healthy
+      /verify:
+        post:
+          summary: Verify ZKP proof
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - proof
+                  properties:
+                    proof:
+                      type: string
+                      description: Base64-encoded ZKP proof
+          responses:
+            '200':
+              description: Proof verified successfully
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      sbom_hash:
+                        type: string
+                      is_valid:
+                        type: boolean
+                      banned_list_info:
+                        type: object
+            '400':
+              description: Verification failed
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      error:
+                        type: string

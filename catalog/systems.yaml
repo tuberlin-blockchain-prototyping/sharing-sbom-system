@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: sbom-sharing-system
+  description: Zero-Knowledge Proof based SBOM sharing and verification system
+  tags:
+    - blockchain
+    - zkp
+    - sbom
+    - security
+    - supply-chain
+spec:
+  owner: team-blockchain
+  domain: security

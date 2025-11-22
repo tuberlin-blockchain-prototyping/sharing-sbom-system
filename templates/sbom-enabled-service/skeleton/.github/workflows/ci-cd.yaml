@@ -1,0 +1,47 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-verify:
+    runs-on: [self-hosted, kind-cluster, blockchain]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ values.name }}:latest .
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ values.name }}:latest
+          format: cyclonedx-json
+          output-file: sbom.json
+
+      {% if values.enableZkpProof %}
+      - name: Generate ZKP Proof
+        run: |
+          # Call proving service
+          curl -X POST http://proving-service.sharing-sbom-system.svc.cluster.local/prove \
+            -H "Content-Type: application/json" \
+            -d @sbom.json
+      {% endif %}
+
+      {% if values.storeOnIpfs %}
+      - name: Store on IPFS
+        run: |
+          # Call IPFS service
+          curl -X POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store \
+            -H "Content-Type: application/json" \
+            -d '{"proof": "$PROOF", "sbom_hash": "$SBOM_HASH"}'
+      {% endif %}
+
+      {% if values.writeToBlockchain %}
+      - name: Write to Blockchain
+        run: |
+          # Call blockchain
+          echo "Recording SBOM metadata on blockchain..."
+      {% endif %}

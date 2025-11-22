@@ -1,0 +1,67 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: blockchain-node
+  description: Hardhat Ethereum development node with SBOMRegistry smart contract
+  annotations:
+    github.com/project-slug: tuberlin-blockchain-prototyping/sharing-sbom-system
+    backstage.io/kubernetes-id: hardhat-node
+    backstage.io/kubernetes-namespace: blockchain
+  tags:
+    - blockchain
+    - ethereum
+    - hardhat
+    - smart-contract
+  links:
+    - url: http://hardhat-node.blockchain.svc.cluster.local:8545
+      title: RPC Endpoint
+      icon: dashboard
+spec:
+  type: service
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  providesApis:
+    - blockchain-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: blockchain-api
+  description: SBOMRegistry Smart Contract API
+  tags:
+    - blockchain
+    - ethereum
+    - solidity
+spec:
+  type: solidity
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system
+  definition: |
+    Contract: SBOMRegistry
+    Address: 0x5FbDB2315678afecb367f032d93F642f64180aa3
+    
+    Functions:
+    - storeSBOM(bytes32 hash, bytes32 softwareDigest, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash)
+    - getSBOM(bytes32 hash) returns (SBOMEntry)
+    - exists(bytes32 hash) returns (bool)
+    - listHashes() returns (bytes32[])
+    
+    Events:
+    - SBOMStored(bytes32 indexed hash, bytes32 softwareDigest, string identifier, bytes32 imageId, string ipfsCid, bool isValid, bytes32 bannedListHash, address indexed submitter, uint256 timestamp)
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: risc0-zkvm
+  description: Risc0 Zero-Knowledge Virtual Machine (shared dependency)
+  tags:
+    - zkp
+    - risc0
+    - library
+spec:
+  type: library
+  lifecycle: production
+  owner: team-blockchain
+  system: sbom-sharing-system

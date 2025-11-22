@@ -1,0 +1,44 @@
+{
+  "name": "@internal/plugin-sbom",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "backstage": {
+    "role": "frontend-plugin",
+    "pluginId": "sbom",
+    "pluginPackages": [
+      "@internal/plugin-sbom"
+    ]
+  },
+  "sideEffects": false,
+  "scripts": {},
+  "dependencies": {
+    "@backstage/core-components": "^0.15.1",
+    "@backstage/core-plugin-api": "^1.9.4",
+    "@backstage/theme": "^0.5.7",
+    "@material-ui/core": "^4.12.4",
+    "@material-ui/icons": "^4.11.3",
+    "@material-ui/lab": "^4.0.0-alpha.61",
+    "react": "^18.2.0",
+    "react-router-dom": "^6.8.0"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@backstage/cli": "^0.28.2",
+    "@backstage/core-app-api": "^1.14.2",
+    "@backstage/dev-utils": "^1.1.1",
+    "@backstage/test-utils": "^1.6.0",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/react": "^14.0.0",
+    "@types/node": "^18.11.9"
+  },
+  "files": [
+    "dist"
+  ]
+}

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backstage
+  namespace: backstage
+  labels:
+    app: backstage
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 7007
+      targetPort: http
+      protocol: TCP
+  selector:
+    app: backstage

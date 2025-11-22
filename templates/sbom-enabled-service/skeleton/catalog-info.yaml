@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ${{ values.name }}
+  description: ${{ values.description }}
+  annotations:
+    github.com/project-slug: tuberlin-blockchain-prototyping/${{ values.name }}
+    backstage.io/kubernetes-id: ${{ values.name }}
+    backstage.io/kubernetes-namespace: sharing-sbom-system
+  tags:
+    - ${{ values.language }}
+    - sbom-enabled
+    {% if values.enableZkpProof %}
+    - zkp
+    {% endif %}
+spec:
+  type: service
+  lifecycle: experimental
+  owner: ${{ values.owner }}
+  system: sbom-sharing-system
