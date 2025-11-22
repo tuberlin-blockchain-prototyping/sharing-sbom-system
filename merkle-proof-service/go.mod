@@ -5,6 +5,7 @@ go 1.21
 require (
 	github.com/CycloneDX/cyclonedx-go v0.9.3
 	github.com/gin-gonic/gin v1.10.0
+	go.etcd.io/bbolt v1.3.8
 )
 
 require (

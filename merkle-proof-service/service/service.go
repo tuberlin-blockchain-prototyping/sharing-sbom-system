@@ -9,10 +9,12 @@ import (
 	"github.com/CycloneDX/cyclonedx-go"
 )
 
-type SMTService struct{}
+type SMTService struct {
+	storage *Storage
+}
 
-func NewSMTService() *SMTService {
-	return &SMTService{}
+func NewSMTService(storage *Storage) *SMTService {
+	return &SMTService{storage: storage}
 }
 
 func (s *SMTService) BuildSMT(bom *cyclonedx.BOM, extractorName, accumulatorName string) (*BuildResult, error) {
@@ -46,14 +48,30 @@ func (s *SMTService) BuildSMT(bom *cyclonedx.BOM, extractorName, accumulatorName
 	}
 	json.Unmarshal(accData, &meta)
 
+	rootHash := hex.EncodeToString(root)
+
+	// Store SMT in database
+	if err := s.storage.StoreSMT(rootHash, json.RawMessage(accData)); err != nil {
+		return nil, err
+	}
+
 	return &BuildResult{
-		SMT:   json.RawMessage(accData),
-		Root:  hex.EncodeToString(root),
+		Root:  rootHash,
 		Depth: meta.Depth,
 	}, nil
 }
 
-func (s *SMTService) GenerateBatchProofs(smtData json.RawMessage, purls []string, compress bool, accumulatorName string) (*BatchProofResult, error) {
+func (s *SMTService) GetSMT(rootHash string) ([]byte, error) {
+	return s.storage.GetSMT(rootHash)
+}
+
+func (s *SMTService) GenerateBatchProofs(rootHash string, purls []string, compress bool, accumulatorName string) (*BatchProofResult, error) {
+	// Fetch SMT from storage
+	smtData, err := s.storage.GetSMT(rootHash)
+	if err != nil {
+		return nil, err
+	}
+
 	acc, err := getAccumulator(accumulatorName)
 	if err != nil {
 		return nil, err

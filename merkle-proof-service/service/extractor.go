@@ -29,8 +29,11 @@ func (e *dependencyExtractor) Extract(bom *cyclonedx.BOM) (map[string]*big.Int, 
 	items := make(map[string]*big.Int)
 
 	if bom.Components == nil {
+		log.Printf("WARNING: BOM has no components")
 		return items, nil
 	}
+
+	log.Printf("Found %d components in BOM", len(*bom.Components))
 
 	for _, comp := range *bom.Components {
 		if comp.PackageURL == "" {
@@ -40,6 +43,7 @@ func (e *dependencyExtractor) Extract(bom *cyclonedx.BOM) (map[string]*big.Int, 
 		items[comp.PackageURL] = valueOne
 	}
 
+	log.Printf("Extracted %d items with PURLs", len(items))
 	return items, nil
 }
 

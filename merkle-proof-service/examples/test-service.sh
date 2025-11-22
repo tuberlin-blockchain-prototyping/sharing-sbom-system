@@ -18,7 +18,7 @@ curl -s "$SERVICE_URL/health" | jq .
 echo "Building SMT..."
 BUILD_RESPONSE=$(curl -s -X POST "$SERVICE_URL/build" \
   -H "Content-Type: application/json" \
-  -d @"$SCRIPT_DIR/sample-sbom.json")
+  -d @"$SCRIPT_DIR/example_sbom.json")
 
 echo "$BUILD_RESPONSE" | jq . > "$OUTPUT_DIR/build-response.json"
 
@@ -27,19 +27,14 @@ echo "Root: $ROOT"
 
 # generate proofs
 echo "Generating proofs..."
-echo "$BUILD_RESPONSE" | jq '.smt' > "$OUTPUT_DIR/smt-state.json"
-PURLS=$(cat "$SCRIPT_DIR/banned-packages.txt" | jq -R . | jq -s .)
-
-PROVE_REQUEST=$(jq -n \
-  --argjson smt "$(cat $OUTPUT_DIR/smt-state.json)" \
-  --argjson purls "$PURLS" \
-  '{smt: $smt, purls: $purls, compress: true}')
-
-echo "$PROVE_REQUEST" | jq . > "$OUTPUT_DIR/prove-request.json"
+jq -n \
+  --arg root "$ROOT" \
+  --slurpfile purls <(cat "$SCRIPT_DIR/banned-packages.txt" | jq -R . | jq -s .) \
+  '{root: $root, purls: $purls[0], compress: true}' > "$OUTPUT_DIR/prove-request.json"
 
 PROVE_RESPONSE=$(curl -s -X POST "$SERVICE_URL/prove-batch" \
   -H "Content-Type: application/json" \
-  -d "$PROVE_REQUEST")
+  -d @"$OUTPUT_DIR/prove-request.json")
 
 echo "$PROVE_RESPONSE" | jq . > "$OUTPUT_DIR/prove-response.json"
 

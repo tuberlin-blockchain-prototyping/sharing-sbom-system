@@ -1,28 +1,23 @@
 package handlers
 
 import (
-	"encoding/json"
-
 	"github.com/CycloneDX/cyclonedx-go"
 )
 
 type BuildRequest struct {
-	SBOM        cyclonedx.BOM `json:"sbom"`
-	Extractor   string        `json:"extractor"`
-	Accumulator string        `json:"accumulator"`
+	cyclonedx.BOM
 }
 
 type BuildResponse struct {
-	SMT   json.RawMessage `json:"smt"`
-	Root  string          `json:"root"`
-	Depth int             `json:"depth"`
+	Root  string `json:"root"`
+	Depth int    `json:"depth"`
 }
 
 type ProveBatchRequest struct {
-	SMT         json.RawMessage `json:"smt" binding:"required"`
-	PURLs       []string        `json:"purls" binding:"required"`
-	Compress    bool            `json:"compress"`
-	Accumulator string          `json:"accumulator"`
+	Root        string   `json:"root" binding:"required"`
+	PURLs       []string `json:"purls" binding:"required"`
+	Compress    bool     `json:"compress"`
+	Accumulator string   `json:"accumulator"`
 }
 
 type ProofOutput struct {

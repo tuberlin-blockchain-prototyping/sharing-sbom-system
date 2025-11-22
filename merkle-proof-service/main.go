@@ -22,13 +22,20 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	svc := service.NewSMTService()
+	storage, err := service.NewStorage("./data/smts.db")
+	if err != nil {
+		log.Fatalf("Failed to initialize storage: %v", err)
+	}
+	defer storage.Close()
+
+	svc := service.NewSMTService(storage)
 	h := handlers.NewHandler(svc)
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
 	router.GET("/health", h.Health)
+	router.GET("/smt/:root", h.GetSMT)
 	router.POST("/build", h.Build)
 	router.POST("/prove-batch", h.ProveBatch)
 

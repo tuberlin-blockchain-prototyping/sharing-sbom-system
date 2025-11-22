@@ -1,9 +1,6 @@
 package service
 
-import "encoding/json"
-
 type BuildResult struct {
-	SMT   json.RawMessage
 	Root  string
 	Depth int
 }

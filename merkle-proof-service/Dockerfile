@@ -18,6 +18,8 @@ WORKDIR /app
 
 COPY --from=builder /build/merkle-proof-service .
 
+RUN mkdir -p /app/data
+
 EXPOSE 8090
 
 CMD ["./merkle-proof-service"]

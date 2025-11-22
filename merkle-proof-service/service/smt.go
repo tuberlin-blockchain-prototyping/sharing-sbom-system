@@ -10,11 +10,11 @@ import (
 	"sort"
 )
 
-const hashSize = 32
+const HashSize = 32
 
 type node struct {
-	left  []byte
-	right []byte
+	Left  []byte
+	Right []byte
 }
 
 type SMT struct {
@@ -103,7 +103,7 @@ func (s *SMT) buildRecursive(depth int, items []smtItem) ([]byte, error) {
 	}
 
 	parentHash := hashNode(leftHash, rightHash)
-	s.nodes[hex.EncodeToString(parentHash)] = node{left: leftHash, right: rightHash}
+	s.nodes[hex.EncodeToString(parentHash)] = node{Left: leftHash, Right: rightHash}
 
 	return parentHash, nil
 }
@@ -128,11 +128,11 @@ func (s *SMT) GenerateProof(preImage string) ([][]byte, *big.Int, error) {
 
 		bit := path.Bit(d)
 		if bit == 0 {
-			siblings[d] = n.right
-			currentHash = n.left
+			siblings[d] = n.Right
+			currentHash = n.Left
 		} else {
-			siblings[d] = n.left
-			currentHash = n.right
+			siblings[d] = n.Left
+			currentHash = n.Right
 		}
 	}
 
@@ -171,9 +171,9 @@ func (s *SMT) getPathAndValue(preImage string) (*big.Int, *big.Int) {
 }
 
 func hashLeaf(val *big.Int) []byte {
-	paddedBytes := make([]byte, hashSize)
+	paddedBytes := make([]byte, HashSize)
 	valBytes := val.Bytes()
-	copy(paddedBytes[hashSize-len(valBytes):], valBytes)
+	copy(paddedBytes[HashSize-len(valBytes):], valBytes)
 
 	h := sha256.New()
 	h.Write(paddedBytes)
@@ -209,8 +209,8 @@ func (s *SMT) MarshalJSON() ([]byte, error) {
 	nodes := make(map[string]nodeJSON, len(s.nodes))
 	for hashKey, n := range s.nodes {
 		nodes[hashKey] = nodeJSON{
-			Left:  hex.EncodeToString(n.left),
-			Right: hex.EncodeToString(n.right),
+			Left:  hex.EncodeToString(n.Left),
+			Right: hex.EncodeToString(n.Right),
 		}
 	}
 
@@ -263,7 +263,7 @@ func (s *SMT) UnmarshalJSON(data []byte) error {
 		if err != nil {
 			return err
 		}
-		s.nodes[hashKey] = node{left: left, right: right}
+		s.nodes[hashKey] = node{Left: left, Right: right}
 	}
 
 	s.leaves = make(map[string]*big.Int, len(parsed.Leaves))

@@ -5,6 +5,7 @@ import (
 
 	"merkle-proof-service/service"
 
+	"github.com/CycloneDX/cyclonedx-go"
 	"github.com/gin-gonic/gin"
 )
 
@@ -21,30 +22,34 @@ func (h *Handler) Health(c *gin.Context) {
 }
 
 func (h *Handler) Build(c *gin.Context) {
-	var req BuildRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var bom cyclonedx.BOM
+	if err := c.ShouldBindJSON(&bom); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	if req.Extractor == "" {
-		req.Extractor = "dependency"
-	}
-	if req.Accumulator == "" {
-		req.Accumulator = "smt"
-	}
-
-	result, err := h.svc.BuildSMT(&req.SBOM, req.Extractor, req.Accumulator)
+	result, err := h.svc.BuildSMT(&bom, "dependency", "smt")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, BuildResponse{
-		SMT:   result.SMT,
+	c.JSON(http.StatusCreated, BuildResponse{
 		Root:  result.Root,
 		Depth: result.Depth,
 	})
+}
+
+func (h *Handler) GetSMT(c *gin.Context) {
+	rootHash := c.Param("root")
+	
+	smt, err := h.svc.GetSMT(rootHash)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{Error: "SMT not found"})
+		return
+	}
+
+	c.Data(http.StatusOK, "application/json", smt)
 }
 
 func (h *Handler) ProveBatch(c *gin.Context) {
@@ -63,7 +68,7 @@ func (h *Handler) ProveBatch(c *gin.Context) {
 		return
 	}
 
-	result, err := h.svc.GenerateBatchProofs(req.SMT, req.PURLs, req.Compress, req.Accumulator)
+	result, err := h.svc.GenerateBatchProofs(req.Root, req.PURLs, req.Compress, req.Accumulator)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
