@@ -1,0 +1,15 @@
+merkle-proof-service
+*.exe
+*.dll
+*.so
+*.dylib
+
+*.test
+
+*.out
+go.work
+go.work.sum
+go.sum
+vendor/
+examples/output/
+
