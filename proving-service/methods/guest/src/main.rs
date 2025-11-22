@@ -3,139 +3,133 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
+use sbom_common::{hash_value, hash_pair, hex_to_bytes32, bitmap_bit, path_bit, DEFAULTS};
+
 #[derive(Serialize, Deserialize, Clone)]
-struct BannedListInfo {
-    source: String,
-    entry_count: usize,
-    hash: String,
+struct CompactMerkleProof {
+    purl: String,
+    value: String,
+    leaf_index: String,
+    siblings: Vec<String>,
+    bitmap: String,
 }
 
 #[derive(Serialize, Deserialize)]
-struct PublicInputs {
-    sbom_hash: [u8; 32],
-    banned_list: Vec<String>,
-    banned_list_info: BannedListInfo,
+struct MerklePublicInputs {
+    root_hash: [u8; 32],
+    banned_list_hash: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize)]
-struct PublicOutputs {
-    sbom_hash: [u8; 32],
-    components_hash: [u8; 32],
-    is_valid: bool,
-    banned_list_info: BannedListInfo,
-}
-
-#[derive(Deserialize)]
-struct CycloneDXComponent {
-    name: Option<String>,
-    version: Option<String>,
-    purl: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct CycloneDXSBOM {
-    components: Option<Vec<CycloneDXComponent>>,
+struct MerklePublicOutputs {
+    root_hash: [u8; 32],
+    banned_list_hash: [u8; 32],
+    verified_count: usize,
+    compliant: bool,
 }
 
 fn main() {
-    let sbom_json: String = env::read();
-    let components_json: String = env::read();
-    let public_inputs: PublicInputs = env::read();
+    let proofs_json: String = env::read();
+    let banned_list: Vec<String> = env::read();
+    let public_inputs: MerklePublicInputs = env::read();
 
-    let computed_sbom_hash = compute_hash(&sbom_json);
-    if computed_sbom_hash != public_inputs.sbom_hash {
-        commit_result(&public_inputs.sbom_hash, &[0u8; 32], false, &public_inputs.banned_list_info);
-        return;
-    }
-
-    let sbom: CycloneDXSBOM = match serde_json::from_str(&sbom_json) {
-        Ok(s) => s,
+    let proofs: Vec<CompactMerkleProof> = match serde_json::from_str(&proofs_json) {
+        Ok(p) => p,
         Err(_) => {
-            commit_result(&public_inputs.sbom_hash, &[0u8; 32], false, &public_inputs.banned_list_info);
+            commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0);
             return;
         }
     };
 
-    let extracted_components = extract_components_from_sbom(&sbom);
-    let extracted_components_json = serde_json::to_string(&extracted_components)
-        .unwrap_or_else(|_| "{}".to_string());
-    let computed_components_hash = compute_hash(&extracted_components_json);
-
-    let pre_extracted_hash = compute_hash(&components_json);
-    if computed_components_hash != pre_extracted_hash {
-        commit_result(&public_inputs.sbom_hash, &computed_components_hash, false, &public_inputs.banned_list_info);
+    // Verify banned list hash
+    let computed_hash = compute_banned_list_hash(&banned_list);
+    if computed_hash != public_inputs.banned_list_hash {
+        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0);
         return;
     }
 
-    let is_valid = check_components(&sbom, &public_inputs.banned_list);
-    commit_result(&public_inputs.sbom_hash, &computed_components_hash, is_valid, &public_inputs.banned_list_info);
+    // Verify completeness: all banned packages have proofs
+    let received: HashSet<&str> = proofs.iter().map(|p| p.purl.as_str()).collect();
+    let expected: HashSet<&str> = banned_list.iter().map(|s| s.as_str()).collect();
+    
+    if received != expected {
+        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0);
+        return;
+    }
+
+    let (compliant, verified_count) = validate_proofs(&proofs, &public_inputs.root_hash);
+    commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, compliant, verified_count);
 }
 
-fn compute_hash(data: &str) -> [u8; 32] {
+fn compute_banned_list_hash(banned_list: &[String]) -> [u8; 32] {
+    let json = serde_json::to_string(banned_list).unwrap_or_else(|_| "[]".to_string());
     let mut hasher = Sha256::new();
-    hasher.update(data.as_bytes());
+    hasher.update(json.as_bytes());
     hasher.finalize().into()
 }
 
-fn check_components(sbom: &CycloneDXSBOM, banned_list: &[String]) -> bool {
-    let components = sbom.components.as_deref().unwrap_or(&[]);
-    let banned_set: HashSet<&str> = banned_list.iter().map(|s| s.as_str()).collect();
+fn validate_proofs(proofs: &[CompactMerkleProof], root_hash: &[u8; 32]) -> (bool, usize) {
+    let mut verified_count = 0;
 
-    for component in components {
-        let identifiers = extract_identifiers(component);
-        if identifiers.iter().any(|id| banned_set.contains(id.as_str())) {
-            return false;
+    for proof in proofs {
+        if proof.value != "0" {
+            return (false, verified_count);
         }
+
+        let bitmap = match hex_to_bytes32(&proof.bitmap) {
+            Ok(b) => b,
+            Err(_) => return (false, verified_count),
+        };
+
+        let leaf_index = match hex_to_bytes32(&proof.leaf_index) {
+            Ok(li) => li,
+            Err(_) => return (false, verified_count),
+        };
+
+        let mut current = hash_value(&proof.value);
+        let mut siblings_iter = proof.siblings.iter();
+
+        for d in 0..256 {
+            let sibling = if bitmap_bit(&bitmap, d) == 1 {
+                match siblings_iter.next() {
+                    Some(hex) => match hex_to_bytes32(hex) {
+                        Ok(h) => h,
+                        Err(_) => return (false, verified_count),
+                    },
+                    None => return (false, verified_count),
+                }
+            } else {
+                DEFAULTS[d]
+            };
+
+            let direction = path_bit(&leaf_index, d);
+            current = if direction == 0 {
+                hash_pair(&current, &sibling)
+            } else {
+                hash_pair(&sibling, &current)
+            };
+        }
+
+        if current != *root_hash {
+            return (false, verified_count);
+        }
+
+        verified_count += 1;
     }
 
-    true
+    (true, verified_count)
 }
 
-fn extract_identifiers(component: &CycloneDXComponent) -> Vec<String> {
-    let mut identifiers = Vec::new();
-
-    if let Some(name) = &component.name {
-        identifiers.push(name.clone());
-    }
-
-    if let (Some(name), Some(version)) = (&component.name, &component.version) {
-        identifiers.push(format!("{}:{}", name, version));
-    }
-
-    if let Some(purl) = &component.purl {
-        identifiers.push(purl.clone());
-    }
-
-    identifiers
-}
-
-fn extract_components_from_sbom(sbom: &CycloneDXSBOM) -> serde_json::Value {
-    let components = sbom.components.as_deref().unwrap_or(&[]);
-    let minimal_components: Vec<serde_json::Value> = components
-        .iter()
-        .map(|comp| {
-            let mut minimal = serde_json::json!({});
-            if let Some(name) = &comp.name {
-                minimal["name"] = serde_json::Value::String(name.clone());
-            }
-            if let Some(version) = &comp.version {
-                minimal["version"] = serde_json::Value::String(version.clone());
-            }
-            if let Some(purl) = &comp.purl {
-                minimal["purl"] = serde_json::Value::String(purl.clone());
-            }
-            minimal
-        })
-        .collect();
-    serde_json::json!({ "components": minimal_components })
-}
-
-fn commit_result(sbom_hash: &[u8; 32], components_hash: &[u8; 32], is_valid: bool, banned_list_info: &BannedListInfo) {
-    let output = PublicOutputs {
-        sbom_hash: *sbom_hash,
-        components_hash: *components_hash,
-        is_valid,
-        banned_list_info: banned_list_info.clone(),
-    };
-    env::commit(&output);
+fn commit_result(
+    root_hash: &[u8; 32],
+    banned_list_hash: &[u8; 32],
+    compliant: bool,
+    verified_count: usize,
+) {
+    env::commit(&MerklePublicOutputs {
+        root_hash: *root_hash,
+        banned_list_hash: *banned_list_hash,
+        verified_count,
+        compliant,
+    });
 }

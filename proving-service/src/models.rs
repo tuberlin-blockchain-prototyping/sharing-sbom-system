@@ -1,38 +1,31 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct BannedListInfo {
-    pub source: String,
-    pub entry_count: usize,
-    pub hash: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PublicInputs {
-    pub sbom_hash: [u8; 32],
-    pub banned_list: Vec<String>,
-    pub banned_list_info: BannedListInfo,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PublicOutputs {
-    pub sbom_hash: [u8; 32],
-    pub components_hash: [u8; 32],
-    pub is_valid: bool,
-    pub banned_list_info: BannedListInfo,
+pub struct CompactMerkleProof {
+    pub purl: String,
+    pub value: String,
+    pub leaf_index: String,
+    pub siblings: Vec<String>,
+    pub bitmap: String,
 }
 
 #[derive(Deserialize)]
-pub struct ProveRequest {
-    pub sbom: serde_json::Value,
-    pub banned_list: Vec<String>,
+pub struct ProveCompactMerkleRequest {
+    pub depth: usize,
+    pub root: String,
+    pub merkle_proofs: Vec<CompactMerkleProof>,
 }
 
-#[derive(Serialize)]
-pub struct ProveResponse {
-    pub proof: String,
-    pub sbom_hash: String,
-    pub image_id: Vec<String>,
-    pub proof_info: serde_json::Value,
+#[derive(Serialize, Deserialize)]
+pub struct MerklePublicInputs {
+    pub root_hash: [u8; 32],
+    pub banned_list_hash: [u8; 32],
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MerklePublicOutputs {
+    pub root_hash: [u8; 32],
+    pub banned_list_hash: [u8; 32],
+    pub verified_count: usize,
+    pub compliant: bool,
+}

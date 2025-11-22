@@ -1,9 +1,5 @@
-mod config;
-mod handlers;
-mod models;
-mod utils;
-
 use actix_web::{web, App, HttpServer};
+use proving_service::{config::Config, handlers};
 use tracing_subscriber::filter::EnvFilter;
 
 #[actix_web::main]
@@ -12,16 +8,21 @@ async fn main() -> std::io::Result<()> {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let config = config::Config::from_env();
+    let config = Config::from_env();
 
     tracing::info!("Starting proving-service on port {}", config.port);
+    tracing::info!("Proofs directory: {}", config.proofs_dir.display());
 
-    HttpServer::new(|| {
+    let port = config.port;
+    
+    HttpServer::new(move || {
+        let config = config.clone();
         App::new()
+            .app_data(web::Data::new(config))
             .route("/health", web::get().to(handlers::health))
-            .route("/prove", web::post().to(handlers::prove))
+            .route("/prove-merkle-compact", web::post().to(handlers::prove_merkle_compact))
     })
-    .bind(("0.0.0.0", config.port))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await
 }
