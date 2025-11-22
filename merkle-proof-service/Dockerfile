@@ -1,0 +1,24 @@
+FROM golang:1.21-alpine AS builder
+
+RUN apk add --no-cache git
+
+WORKDIR /build
+
+COPY . .
+
+RUN go mod download && go mod tidy
+
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o merkle-proof-service .
+
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+COPY --from=builder /build/merkle-proof-service .
+
+EXPOSE 8090
+
+CMD ["./merkle-proof-service"]
+
