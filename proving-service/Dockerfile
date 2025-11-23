@@ -14,9 +14,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY . .
-
-WORKDIR /app
+COPY proving-service/ .
 
 # Install Risc0
 RUN curl -L https://risczero.com/install | bash && \

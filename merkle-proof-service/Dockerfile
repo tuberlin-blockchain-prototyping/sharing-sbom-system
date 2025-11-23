@@ -4,9 +4,12 @@ RUN apk add --no-cache git
 
 WORKDIR /build
 
-COPY . .
+COPY merkle-proof-service/go.mod ./
+RUN go mod download
 
-RUN go mod download && go mod tidy
+COPY merkle-proof-service/ .
+
+RUN go mod tidy
 
 ARG TARGETOS
 ARG TARGETARCH
