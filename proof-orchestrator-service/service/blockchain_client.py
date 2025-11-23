@@ -1,6 +1,5 @@
 import subprocess
 import logging
-import os
 from config import Config
 
 logger = logging.getLogger(__name__)
@@ -38,22 +37,6 @@ class BlockchainClient:
             logger.error(f"Failed to find Hardhat pod: {e.stderr}")
             raise Exception(f"Failed to find Hardhat pod: {e.stderr}")
 
-        script_name = os.path.basename(self.script_path)
-        local_script_path = f"scripts/blockchain/{script_name}"
-
-        copy_cmd = [
-            "kubectl", "cp",
-            local_script_path,
-            f"{self.namespace}/{hardhat_pod}:{self.script_path}"
-        ]
-
-        try:
-            subprocess.run(copy_cmd, check=True, timeout=10)
-            logger.info(f"Copied script to pod: {script_name}")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to copy script: {e}")
-            raise Exception(f"Failed to copy script to pod")
-
         env_vars = {
             "ADDR": self.contract_address,
             "ROOT_HASH": root_hash,
@@ -83,6 +66,11 @@ class BlockchainClient:
             )
 
             output_lines = result.stdout.strip().split('\n')
+            
+            if "SKIPPED" in result.stdout:
+                logger.info("Merkle proof already exists for this root_hash + banned_list_hash combination, skipping")
+                return "SKIPPED"
+            
             tx_hash = output_lines[-1] if output_lines else None
 
             if not tx_hash or not tx_hash.startswith("0x") or len(tx_hash) != 66:

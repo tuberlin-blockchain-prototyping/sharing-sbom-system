@@ -52,7 +52,10 @@ class ProofService:
             compliant=compliant
         )
         
-        logger.info(f"Proof generation completed: tx_hash={tx_hash}")
+        if tx_hash == "SKIPPED":
+            logger.info("Proof already exists on blockchain for this root_hash + banned_list_hash combination")
+        else:
+            logger.info(f"Proof generation completed: tx_hash={tx_hash}")
         
         return {
             "ipfs_cid": ipfs_cid,

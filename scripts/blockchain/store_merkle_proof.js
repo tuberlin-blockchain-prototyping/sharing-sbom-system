@@ -39,20 +39,22 @@ async function main() {
   
   const exists = await contract.existsMerkleProof(rootHashBytes32, bannedListHashBytes32);
   if (exists) {
-    console.error("ERROR: Merkle proof already exists in contract");
-    console.error("Root Hash:", rootHashBytes32);
-    console.error("Banned List Hash:", bannedListHashBytes32);
+    console.log("Merkle proof already exists in contract, skipping registration");
+    console.log("Root Hash:", rootHashBytes32);
+    console.log("Banned List Hash:", bannedListHashBytes32);
     try {
       const entry = await contract.getMerkleProof(rootHashBytes32, bannedListHashBytes32);
-      console.error("Existing entry:");
-      console.error("  IPFS CID:", entry.ipfsCid);
-      console.error("  Compliant:", entry.compliant);
-      console.error("  Timestamp:", new Date(Number(entry.timestamp) * 1000).toISOString());
-      console.error("  Prover:", entry.prover);
+      console.log("Existing entry:");
+      console.log("  IPFS CID:", entry.ipfsCid);
+      console.log("  Compliant:", entry.compliant);
+      console.log("  Timestamp:", new Date(Number(entry.timestamp) * 1000).toISOString());
+      console.log("  Prover:", entry.prover);
+      console.log("SKIPPED");
+      return;
     } catch (e) {
       console.error("Could not retrieve entry details:", e.message);
+      throw new Error("Merkle proof already stored but could not retrieve details.");
     }
-    throw new Error("Merkle proof already stored.");
   }
   
   console.log("Storing Merkle Proof:");
