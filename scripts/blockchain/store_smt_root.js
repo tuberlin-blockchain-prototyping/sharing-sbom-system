@@ -40,20 +40,22 @@ async function main() {
   
   const exists = await contract.existsSMTRoot(rootHashBytes32);
   if (exists) {
-    console.error("ERROR: SMT root hash already exists in contract");
-    console.error("Root Hash:", rootHashBytes32);
+    console.log("SMT root hash already exists in contract, skipping registration");
+    console.log("Root Hash:", rootHashBytes32);
     try {
       const entry = await contract.getSMTRoot(rootHashBytes32);
-      console.error("Existing entry:");
-      console.error("  Software Digest:", entry.softwareDigest);
-      console.error("  SBOM Hash:", entry.sbomHash);
-      console.error("  Identifier:", entry.identifier);
-      console.error("  Timestamp:", new Date(Number(entry.timestamp) * 1000).toISOString());
-      console.error("  Submitter:", entry.submitter);
+      console.log("Existing entry:");
+      console.log("  Software Digest:", entry.softwareDigest);
+      console.log("  SBOM Hash:", entry.sbomHash);
+      console.log("  Identifier:", entry.identifier);
+      console.log("  Timestamp:", new Date(Number(entry.timestamp) * 1000).toISOString());
+      console.log("  Submitter:", entry.submitter);
+      console.log("SKIPPED");
+      return;
     } catch (e) {
       console.error("Could not retrieve entry details:", e.message);
+      throw new Error("SMT root hash already stored but could not retrieve details.");
     }
-    throw new Error("SMT root hash already stored.");
   }
   
   console.log("Storing SMT Root:");
