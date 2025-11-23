@@ -20,7 +20,7 @@ class ProvingClient:
         }
         
         logger.info(f"Calling proving-service: {url}")
-        logger.debug(f"Request payload: root={root}, depth={depth}, proofs_count={len(compact_proofs)}")
+        logger.debug(f"Request payload: root={root}, depth={depth}, proofs_count={len(merkle_proofs)}")
         
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
