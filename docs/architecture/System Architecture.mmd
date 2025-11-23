@@ -4,12 +4,18 @@ flowchart TB
     classDef blockchain shape:cylinder,fill:#cfc,stroke:#388e3c,stroke-width:2px;
     classDef external fill:#f3f3f3,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5;
     classDef contract shape:parallelogram,fill:#e6ffed,stroke:#388e3c,stroke-width:2px;
+
+    
     TBE["Build Environment<br/>(e.g., GitHub Actions)"]:::external
+
     subgraph Core_Services [Core Microservices]
+        Orchestrator{{proof-orchestrator-service<br/><i>Python</i>}}:::microservice
+        MerkleSvc{{merkle-proof-service<br/><i>Go</i>}}:::microservice
         Prover{{proving-service<br/><i>Rust / Risc0</i>}}:::microservice
         IPFS_Svc{{ipfs-service<br/><i>Python</i>}}:::microservice
         Verifier{{verifier-service<br/><i>Rust</i>}}:::microservice
     end
+
     subgraph Decentralized_Infrastructure [Decentralized Infrastructure]
         direction LR
         
@@ -30,10 +36,20 @@ flowchart TB
         CVE[(CVE Database)]:::storage
     end
     TBE -- "Request CVE dataset" --> CVE
-    TBE -- "Prove request" --> Prover
-    TBE -- "Store metadata transaction" --> SmartContract
-    TBE -- "Store data (e.g., Proof Receipt)" --> IPFS_Svc
-    
-    Prover -- "Proof Receipt" --> TBE
-    Chain -- "Transaction Receipt" --> TBE
+    TBE -- "Request orchestration for SBOM processing" --> Orchestrator
+    TBE -- "Convert SBOM to Merkle Tree" --> MerkleSvc
+
+    Orchestrator -- "Store data (e.g., Proof Receipt)" --> IPFS_Svc
+    Orchestrator -- "Store metadata transaction" --> SmartContract
+    Orchestrator -- "Generate Merkle Proofs" --> MerkleSvc
+    Orchestrator -- "Generate ZK Proof" --> Prover
+%%    Orchestrator -- "Artefacts for attestation" --> TBE
+
+%%    MerkleSvc -- "Return Merkle Root" --> Orchestrator
+%%    MerkleSvc -- "SMT for storage" --> Orchestrator
+
+%%    Chain -- "Transaction Receipt" --> Orchestrator
+
     IPFS_Svc -- "Pin data to network" --> IPFS_Net
+
+    Decentralized_Infrastructure ~~~ Core_Services

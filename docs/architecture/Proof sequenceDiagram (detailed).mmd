@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    participant Vendor
+    participant GitHub_Repository as GitHub Repository
+    participant GitHub_Actions as GitHub Actions
+    participant Merkle_Proof_Service as Merkle Proof Service
+    participant Proof_Orchestrator_Service as Proof Orchestrator Service
+    participant Proving_Service as Proving Service
+    participant IPFS_Service as IPFS Service
+    participant Blockchain as Blockchain (Smart Contract)
+
+    Vendor->>GitHub_Repository: git push
+    GitHub_Repository->>GitHub_Actions: Trigger workflow
+    note right of GitHub_Actions: Compute SBOM
+
+    GitHub_Actions->>Merkle_Proof_Service: Build SMT from SBOM
+    activate Merkle_Proof_Service
+    Merkle_Proof_Service-->>GitHub_Actions: Return Root Hash
+    deactivate Merkle_Proof_Service
+
+    GitHub_Actions->>Proof_Orchestrator_Service: Generate Proof (root_hash, banned_list)
+    activate Proof_Orchestrator_Service
+
+    Proof_Orchestrator_Service->>Merkle_Proof_Service: Generate Merkle Proofs for banned_list
+    activate Merkle_Proof_Service
+    Merkle_Proof_Service-->>Proof_Orchestrator_Service: Return Merkle Proofs
+    deactivate Merkle_Proof_Service
+
+    Proof_Orchestrator_Service->>Proving_Service: Generate ZK Proof
+    activate Proving_Service
+    Proving_Service-->>Proof_Orchestrator_Service: Return ZK Proof
+    deactivate Proving_Service
+
+    Proof_Orchestrator_Service->>IPFS_Service: Store ZK Proof
+    activate IPFS_Service
+    IPFS_Service-->>Proof_Orchestrator_Service: Return IPFS CID
+    deactivate IPFS_Service
+
+    Proof_Orchestrator_Service->>Blockchain: Store Metadata (root_hash, ipfs_cid, etc.)
+    activate Blockchain
+    Blockchain-->>Proof_Orchestrator_Service: Return Transaction Hash
+    deactivate Blockchain
+
+    Proof_Orchestrator_Service-->>GitHub_Actions: Response (ipfs_cid, tx_hash, compliance_status)
+    deactivate Proof_Orchestrator_Service
+
+    note right of GitHub_Actions: Generate and sign build attestation (using OIDC token)
+

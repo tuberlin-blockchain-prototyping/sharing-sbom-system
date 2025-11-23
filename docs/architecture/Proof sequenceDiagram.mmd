@@ -3,30 +3,22 @@ sequenceDiagram
     participant Vendor
     participant GitHub_Repository as GitHub Repository
     participant GitHub_Actions as GitHub Actions
-    participant CVE_Database as CVE Database
-    participant Proving_Service as Proving Service
-    participant IPFS_Service as IPFS Service
-    participant Blockchain as Blockchain (Smart Contract)
+    participant Merkle_Proof_Service as Merkle Proof Service
+    participant Proof_Orchestrator_Service as Proof Orchestrator Service
+
     Vendor->>GitHub_Repository: git push
     GitHub_Repository->>GitHub_Actions: Trigger workflow
-    note right of GitHub_Actions: Compute Software Digest, SBOM, H(SBOM)
-    
-    GitHub_Actions->>CVE_Database: Request CVE dataset with SBOM
-    CVE_Database-->>GitHub_Actions: Send CVE dataset
-    note right of GitHub_Actions: Compute H(CVE dataset)
-    GitHub_Actions->>Proving_Service: Proof request (SBOM, H(SBOM), CVE dataset, H(CVE dataset))
-    activate Proving_Service
-    note right of Proving_Service: Verify hashes, generate ZK proof
-    Proving_Service-->>GitHub_Actions: Response (proof, imageId, isValid)
-    deactivate Proving_Service
-    GitHub_Actions->>IPFS_Service: Storage request (H(SBOM), proof)
-    activate IPFS_Service
-    note right of IPFS_Service: Store bundle
-    IPFS_Service-->>GitHub_Actions: Return IPFS CID
-    deactivate IPFS_Service
-    GitHub_Actions->>Blockchain: Store metadata transaction (Software Digest, H(SBOM), H(CVE dataset), IPFS CID, Timestamp, Runner ID, etc.)
-    activate Blockchain
-    note right of Blockchain: Confirm transaction
-    Blockchain-->>GitHub_Actions: Transaction receipt
-    deactivate Blockchain
+    note right of GitHub_Actions: Compute SBOM
+
+    GitHub_Actions->>Merkle_Proof_Service: Build SMT from SBOM
+    activate Merkle_Proof_Service
+    Merkle_Proof_Service-->>GitHub_Actions: Return Root Hash
+    deactivate Merkle_Proof_Service
+
+    GitHub_Actions->>Proof_Orchestrator_Service: Generate Proof (root_hash, banned_list)
+    activate Proof_Orchestrator_Service
+    note right of Proof_Orchestrator_Service: Orchestrates proof generation, storage, and blockchain registration
+    Proof_Orchestrator_Service-->>GitHub_Actions: Response (ipfs_cid, tx_hash, compliance_status)
+    deactivate Proof_Orchestrator_Service
+
     note right of GitHub_Actions: Generate and sign build attestation (using OIDC token)
