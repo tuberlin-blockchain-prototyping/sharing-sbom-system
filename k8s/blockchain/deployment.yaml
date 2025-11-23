@@ -32,7 +32,7 @@ spec:
             sleep 5
             
             # Deploy contract (will always be at 0x5FbDB2315678afecb367f032d93F642f64180aa3)
-            echo "Deploying SBOMRegistry contract..."
+            echo "Deploying SBOMRegistryV2 contract..."
             npx hardhat run deploy.js --network localhost
             echo "Contract deployed and ready!"
             
@@ -52,8 +52,14 @@ spec:
           mountPath: /workspace/deploy.js
           subPath: deploy.js
         - name: hardhat-config
-          mountPath: /workspace/contracts/SBOMRegistry.sol
-          subPath: SBOMRegistry.sol
+          mountPath: /workspace/contracts/SBOMRegistryV2.sol
+          subPath: SBOMRegistryV2.sol
+        - name: hardhat-config
+          mountPath: /workspace/store_smt_root.js
+          subPath: store_smt_root.js
+        - name: hardhat-config
+          mountPath: /workspace/store_merkle_proof.js
+          subPath: store_merkle_proof.js
         - name: workspace
           mountPath: /workspace
       volumes:
