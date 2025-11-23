@@ -28,13 +28,6 @@ spec:
         volumeMounts:
         - name: merkle-proof-service-data
           mountPath: /app/data
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "200m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
       volumes:
       - name: merkle-proof-service-data
         emptyDir: {}

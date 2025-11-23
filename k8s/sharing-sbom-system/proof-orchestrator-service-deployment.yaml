@@ -13,6 +13,7 @@ spec:
       labels:
         app: proof-orchestrator-service
     spec:
+      serviceAccountName: proof-orchestrator-service
       containers:
       - name: proof-orchestrator-service
         image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proof-orchestrator-service:3fb255f
@@ -35,11 +36,4 @@ spec:
           value: "blockchain"
         - name: BLOCKCHAIN_SCRIPT_PATH
           value: "/workspace/store_merkle_proof.js"
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "200m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
 

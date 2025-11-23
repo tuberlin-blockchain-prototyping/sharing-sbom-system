@@ -34,13 +34,6 @@ spec:
         volumeMounts:
         - name: ipfs-service-data
           mountPath: /data
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
       volumes:
       - name: ipfs-service-data
         emptyDir: {}

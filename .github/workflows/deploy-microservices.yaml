@@ -50,7 +50,9 @@ jobs:
           file: ./${{ matrix.service }}/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/${{ matrix.service }}:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/${{ matrix.service }}:latest
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           build-args: |
@@ -90,7 +92,9 @@ jobs:
           file: ./ipfs-service/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/ipfs-service:${{ steps.meta.outputs.tag }}
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/ipfs-service:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/ipfs-service:latest
           cache-from: type=gha,scope=ipfs-service
           cache-to: type=gha,mode=max,scope=ipfs-service
 
@@ -128,7 +132,9 @@ jobs:
           file: ./proof-orchestrator-service/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/proof-orchestrator-service:${{ steps.meta.outputs.tag }}
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/proof-orchestrator-service:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/proof-orchestrator-service:latest
           cache-from: type=gha,scope=proof-orchestrator-service
           cache-to: type=gha,mode=max,scope=proof-orchestrator-service
 
@@ -166,7 +172,9 @@ jobs:
           file: ./merkle-proof-service/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/merkle-proof-service:${{ steps.meta.outputs.tag }}
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/merkle-proof-service:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ steps.meta.outputs.repo_path }}/merkle-proof-service:latest
           cache-from: type=gha,scope=merkle-proof-service
           cache-to: type=gha,mode=max,scope=merkle-proof-service
 
