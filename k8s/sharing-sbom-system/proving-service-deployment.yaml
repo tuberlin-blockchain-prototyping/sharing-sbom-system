@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: proving-service
-        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proving-service:e157cfa
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proving-service:3fb255f
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

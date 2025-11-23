@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: proof-orchestrator-service
-        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proof-orchestrator-service:latest
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proof-orchestrator-service:3fb255f
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
