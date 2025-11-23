@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: verifier-service
-        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/verifier-service:8815b99
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/verifier-service:71e8253
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080

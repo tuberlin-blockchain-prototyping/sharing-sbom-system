@@ -16,7 +16,7 @@ spec:
       serviceAccountName: proof-orchestrator-service
       containers:
       - name: proof-orchestrator-service
-        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proof-orchestrator-service:8815b99
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/proof-orchestrator-service:71e8253
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
