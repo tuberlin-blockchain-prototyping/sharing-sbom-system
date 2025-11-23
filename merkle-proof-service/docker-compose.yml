@@ -13,3 +13,4 @@ services:
       - ./data:/app/data
     container_name: merkle-proof-service
 
+

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: proof-orchestrator-service
+  namespace: sharing-sbom-system
+spec:
+  selector:
+    app: proof-orchestrator-service
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  type: ClusterIP
+

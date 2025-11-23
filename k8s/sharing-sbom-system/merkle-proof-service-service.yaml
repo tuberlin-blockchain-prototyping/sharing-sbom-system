@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: merkle-proof-service
+  namespace: sharing-sbom-system
+spec:
+  selector:
+    app: merkle-proof-service
+  ports:
+  - port: 8090
+    targetPort: 8090
+    protocol: TCP
+    name: http
+  type: ClusterIP
+

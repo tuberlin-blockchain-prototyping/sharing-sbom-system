@@ -8,7 +8,10 @@ COPY . .
 
 RUN go mod download && go mod tidy
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o merkle-proof-service .
+ARG TARGETOS
+ARG TARGETARCH
+
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o merkle-proof-service .
 
 FROM alpine:latest
 

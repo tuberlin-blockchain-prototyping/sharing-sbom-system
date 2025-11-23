@@ -1,8 +1,5 @@
 name: Deploy Microservices
 
-# Builds and deploys the microservices (proving-service, verifier-service, ipfs-service)
-# Updates Kubernetes manifests
-
 on:
   push:
     branches: [main]
@@ -10,6 +7,8 @@ on:
       - 'proving-service/**'
       - 'verifier-service/**'
       - 'ipfs-service/**'
+      - 'proof-orchestrator-service/**'
+      - 'merkle-proof-service/**'
       - '.github/workflows/deploy-microservices.yaml'
   workflow_dispatch:
 
@@ -44,13 +43,13 @@ jobs:
           echo "repo_path=$REPO_PATH" >> $GITHUB_OUTPUT
           echo "Building ${{ matrix.service }} with tag: $IMAGE_TAG"
 
-      - name: Build and push ${{ matrix.service }} (multi-platform with ARM64 manual build)
+      - name: Build and push ${{ matrix.service }}
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./${{ matrix.service }}/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/${{ matrix.service }}:${{ steps.meta.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
@@ -84,7 +83,7 @@ jobs:
           echo "repo_path=$REPO_PATH" >> $GITHUB_OUTPUT
           echo "Building ipfs-service with tag: $IMAGE_TAG"
 
-      - name: Build and push ipfs-service (multi-platform)
+      - name: Build and push ipfs-service
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -95,8 +94,84 @@ jobs:
           cache-from: type=gha,scope=ipfs-service
           cache-to: type=gha,mode=max,scope=ipfs-service
 
+  build-proof-orchestrator-service:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          IMAGE_TAG="${GITHUB_SHA:0:7}"
+          REPO_PATH=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "repo_path=$REPO_PATH" >> $GITHUB_OUTPUT
+          echo "Building proof-orchestrator-service with tag: $IMAGE_TAG"
+
+      - name: Build and push proof-orchestrator-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./proof-orchestrator-service/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/proof-orchestrator-service:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=proof-orchestrator-service
+          cache-to: type=gha,mode=max,scope=proof-orchestrator-service
+
+  build-merkle-proof-service:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          IMAGE_TAG="${GITHUB_SHA:0:7}"
+          REPO_PATH=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "repo_path=$REPO_PATH" >> $GITHUB_OUTPUT
+          echo "Building merkle-proof-service with tag: $IMAGE_TAG"
+
+      - name: Build and push merkle-proof-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./merkle-proof-service/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ steps.meta.outputs.repo_path }}/merkle-proof-service:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=merkle-proof-service
+          cache-to: type=gha,mode=max,scope=merkle-proof-service
+
   update-manifests:
-    needs: [build-risc-services, build-ipfs-service]
+    needs: [build-risc-services, build-ipfs-service, build-proof-orchestrator-service, build-merkle-proof-service]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -111,10 +186,11 @@ jobs:
           REPO_PATH=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_TAG="${GITHUB_SHA:0:7}"
           
-          # Update all service images with commit hash tag
           sed -i "s|image: ghcr.io/.*/proving-service:.*|image: ghcr.io/${REPO_PATH}/proving-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/proving-service-deployment.yaml
           sed -i "s|image: ghcr.io/.*/verifier-service:.*|image: ghcr.io/${REPO_PATH}/verifier-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/verifier-service-deployment.yaml
           sed -i "s|image: ghcr.io/.*/ipfs-service:.*|image: ghcr.io/${REPO_PATH}/ipfs-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/ipfs-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/proof-orchestrator-service:.*|image: ghcr.io/${REPO_PATH}/proof-orchestrator-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/proof-orchestrator-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/merkle-proof-service:.*|image: ghcr.io/${REPO_PATH}/merkle-proof-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/merkle-proof-service-deployment.yaml
 
       - name: Commit and push changes
         run: |

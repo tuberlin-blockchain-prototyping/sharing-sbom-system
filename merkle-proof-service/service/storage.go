@@ -56,3 +56,4 @@ func (s *Storage) GetSMT(rootHash string) (json.RawMessage, error) {
 	return json.RawMessage(data), err
 }
 
+

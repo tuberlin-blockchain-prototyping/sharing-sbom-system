@@ -10,7 +10,6 @@ jobs:
   build-and-scan:
     runs-on: ubuntu-latest
     outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
       image_digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Check out repository
@@ -74,58 +73,10 @@ jobs:
             sboms/app.sha256
           retention-days: 30
 
-  fetch-cve-banned-list:
-    runs-on: ubuntu-latest
-    outputs:
-      banned_list: ${{ steps.parse.outputs.banned_list }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Fetch CVE data from NVD
-        id: fetch_cve
-        run: |
-          python3 << 'EOF'
-          import json
-          import urllib.request
-          import sys
-          
-          banned_list = [
-              "log4j-core",
-              "log4j-core:2.17.0",
-              "pkg:maven/org.apache.logging.log4j/log4j-core@2.17.0"
-          ]
-          
-          with open('banned_list.txt', 'w') as f:
-              for item in banned_list:
-                  f.write(item + '\n')
-          
-          print(f"Created banned list with {len(banned_list)} entries")
-          EOF
-
-      - name: Parse CVE data to banned list format
-        id: parse
-        run: |
-          BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          echo "banned_list=$BANNED_LIST" >> $GITHUB_OUTPUT
-          echo "Banned list entries:"
-          cat banned_list.txt
-
-      - name: Upload banned list
-        uses: actions/upload-artifact@v4
-        with:
-          name: banned-list
-          path: banned_list.txt
-
-  generate-proof:
+  build-smt-and-store:
     runs-on: [self-hosted, kind-cluster, blockchain]
-    needs: [build-and-scan, fetch-cve-banned-list]
-    timeout-minutes: 60
+    needs: [build-and-scan]
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -137,145 +88,82 @@ jobs:
           path: .
           if-no-files-found: error
 
-      - name: Download banned list
-        uses: actions/download-artifact@v4
-        with:
-          name: banned-list
-          path: .
-          if-no-files-found: error
-
-      - name: Create SBOM for proving
-        id: locate
-        run: |
-          RUN_ID="${{ github.run_id }}"
-          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          cat > sbom.json << EOF
-          {
-            "bomFormat": "CycloneDX",
-            "specVersion": "1.4",
-            "version": 1,
-            "metadata": {
-              "timestamp": "${TIMESTAMP}",
-              "ciRunId": "${RUN_ID}"
-            },
-            "components": [
-              {
-                "type": "library",
-                "name": "express",
-                "version": "4.18.2",
-                "purl": "pkg:npm/express@4.18.2"
-              },
-              {
-                "type": "library",
-                "name": "lodash",
-                "version": "4.17.21",
-                "purl": "pkg:npm/lodash@4.17.21"
-              },
-              {
-                "type": "library",
-                "name": "axios",
-                "version": "1.0.0",
-                "purl": "pkg:npm/axios@1.0.0"
-              }
-            ]
-          }
-          EOF
-          echo "sbom_file=sbom.json" >> $GITHUB_OUTPUT
-
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
 
-      - name: Wait for proving-service
+      - name: Wait for merkle-proof-service
         run: |
-          kubectl wait --for=condition=available --timeout=300s deployment/proving-service -n sharing-sbom-system
-          PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
+          kubectl wait --for=condition=available --timeout=300s deployment/merkle-proof-service -n sharing-sbom-system || true
+          MERKLE_PROOF_SERVICE_URL="http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090"
           for i in {1..30}; do
-            curl -s --max-time 5 "$PROVING_SERVICE_URL/health" > /dev/null 2>&1 && break
+            curl -s --max-time 5 "$MERKLE_PROOF_SERVICE_URL/health" > /dev/null 2>&1 && break
             sleep 2
           done
 
-      - name: Generate proof
-        id: prove
-        timeout-minutes: 45
+      - name: Build SMT from SBOM
+        id: build_smt
+        timeout-minutes: 15
         run: |
-          PROVING_SERVICE_URL="http://proving-service.sharing-sbom-system.svc.cluster.local"
-          SBOM_FILE="${{ steps.locate.outputs.sbom_file }}"
+          MERKLE_PROOF_SERVICE_URL="http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090"
+          SBOM_FILE="sboms/app.json"
           [ ! -f "$SBOM_FILE" ] && { echo "ERROR: SBOM file not found"; exit 1; }
-          [ ! -f "banned_list.txt" ] && { echo "ERROR: banned_list.txt not found"; exit 1; }
-          
-          BANNED_LIST=$(cat banned_list.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
-          jq -n --slurpfile sbom "$SBOM_FILE" --argjson banned_list "$BANNED_LIST" '{sbom: $sbom[0], banned_list: $banned_list}' > request_payload.json
           
           RESPONSE_FILE=$(mktemp)
-          HTTP_CODE=$(curl -X POST "$PROVING_SERVICE_URL/prove" \
+          HTTP_CODE=$(curl -X POST "$MERKLE_PROOF_SERVICE_URL/build" \
             -H "Content-Type: application/json" \
-            --data-binary @request_payload.json \
-            --max-time 1800 \
+            --data-binary @"$SBOM_FILE" \
+            --max-time 900 \
             --write-out "%{http_code}" \
             --output "$RESPONSE_FILE" \
             --silent)
           
-          [ "$HTTP_CODE" != "200" ] && { echo "ERROR: Proof generation failed ($HTTP_CODE)"; cat "$RESPONSE_FILE"; exit 1; }
+          [ "$HTTP_CODE" != "200" ] && { echo "ERROR: SMT build failed ($HTTP_CODE)"; cat "$RESPONSE_FILE"; exit 1; }
           
           RESPONSE_BODY=$(cat "$RESPONSE_FILE")
           echo "$RESPONSE_BODY" | jq .
           
-          echo "proof=$(echo "$RESPONSE_BODY" | jq -r '.proof')" >> $GITHUB_OUTPUT
-          echo "sbom_hash=$(echo "$RESPONSE_BODY" | jq -r '.sbom_hash')" >> $GITHUB_OUTPUT
-          echo "image_id=$(echo "$RESPONSE_BODY" | jq -r '.image_id | join(",")')" >> $GITHUB_OUTPUT
-          echo "is_valid=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.is_valid')" >> $GITHUB_OUTPUT
-          echo "banned_list_hash=$(echo "$RESPONSE_BODY" | jq -r '.proof_info.banned_list_info.hash')" >> $GITHUB_OUTPUT
+          ROOT_HASH=$(echo "$RESPONSE_BODY" | jq -r '.root')
+          [ -z "$ROOT_HASH" ] || [ "$ROOT_HASH" == "null" ] && { echo "ERROR: Root hash not found in response"; exit 1; }
           
-          echo "$RESPONSE_BODY" | jq . > proof_info.json
+          echo "root_hash=$ROOT_HASH" >> $GITHUB_OUTPUT
+          echo "SMT Root Hash: $ROOT_HASH"
           rm -f "$RESPONSE_FILE"
 
-      - name: Store proof on IPFS
-        id: ipfs
+      - name: Read SBOM hash
+        id: sbom_hash
         run: |
-          IPFS_SERVICE_URL="http://ipfs-service.sharing-sbom-system.svc.cluster.local"
-          PROOF_FILE=$(mktemp)
-          echo "${{ steps.prove.outputs.proof }}" > "$PROOF_FILE"
-          PAYLOAD_FILE=$(mktemp)
-          jq -n --rawfile proof "$PROOF_FILE" --arg sbom_hash "${{ steps.prove.outputs.sbom_hash }}" '{proof: $proof, sbom_hash: $sbom_hash}' > "$PAYLOAD_FILE"
-          
-          IPFS_RESPONSE=$(curl -s -X POST "$IPFS_SERVICE_URL/store" -H "Content-Type: application/json" -d @"$PAYLOAD_FILE")
-          echo "$IPFS_RESPONSE" | jq .
-          echo "ipfs_cid=$(echo "$IPFS_RESPONSE" | jq -r '.ipfs_cid')" >> $GITHUB_OUTPUT
-          rm -f "$PROOF_FILE" "$PAYLOAD_FILE"
+          SBOM_HASH=$(cat sboms/app.sha256)
+          echo "sbom_hash=$SBOM_HASH" >> $GITHUB_OUTPUT
+          echo "SBOM Hash: $SBOM_HASH"
 
-      - name: Write to blockchain
+      - name: Write SMT root to blockchain
         run: |
           CONTRACT_ADDR="0x5FbDB2315678afecb367f032d93F642f64180aa3"
+          ROOT_HASH="${{ steps.build_smt.outputs.root_hash }}"
+          SBOM_HASH="${{ steps.sbom_hash.outputs.sbom_hash }}"
           IMAGE_DIGEST="${{ needs.build-and-scan.outputs.image_digest }}"
+          
           [[ "$IMAGE_DIGEST" == sha256:* ]] && SOFTWARE_DIGEST="${IMAGE_DIGEST#sha256:}" || SOFTWARE_DIGEST="$IMAGE_DIGEST"
           [[ ! "$SOFTWARE_DIGEST" =~ ^[0-9a-fA-F]{64}$ ]] && { echo "ERROR: Invalid digest format"; exit 1; }
           
-          echo "Writing to blockchain:"
-          echo "  SBOM Hash: ${{ steps.prove.outputs.sbom_hash }}"
+          echo "Writing SMT root to blockchain:"
+          echo "  Root Hash: $ROOT_HASH"
           echo "  Software Digest: sha256:$SOFTWARE_DIGEST"
-          echo "  IPFS CID: ${{ steps.ipfs.outputs.ipfs_cid }}"
-          echo "  Valid: ${{ steps.prove.outputs.is_valid }}"
+          echo "  SBOM Hash: $SBOM_HASH"
+          echo "  Identifier: github-ci-${{ github.run_id }}"
           
           HARDHAT_POD=$(kubectl get pods -n blockchain -l app=hardhat-node -o jsonpath='{.items[0].metadata.name}')
           [ -z "$HARDHAT_POD" ] && { echo "ERROR: Hardhat node not found"; exit 1; }
           
-          kubectl cp scripts/blockchain/store_sbom.js "blockchain/$HARDHAT_POD:/workspace/store_sbom.js"
-          TX_OUTPUT=$(kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && ADDR='$CONTRACT_ADDR' HASH='${{ steps.prove.outputs.sbom_hash }}' SOFTWARE_DIGEST='$SOFTWARE_DIGEST' IDENT='github-ci-${{ github.run_id }}' IMAGE_ID='${{ steps.prove.outputs.image_id }}' IPFS_CID='${{ steps.ipfs.outputs.ipfs_cid }}' IS_VALID='${{ steps.prove.outputs.is_valid }}' BANNED_LIST_HASH='${{ steps.prove.outputs.banned_list_hash }}' npx hardhat run store_sbom.js --network localhost 2>&1")
+          kubectl cp scripts/blockchain/store_smt_root.js "blockchain/$HARDHAT_POD:/workspace/store_smt_root.js"
+          IDENT="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):${{ github.run_id }}"
+          TX_OUTPUT=$(kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && ADDR='$CONTRACT_ADDR' ROOT_HASH='$ROOT_HASH' SOFTWARE_DIGEST='$SOFTWARE_DIGEST' SBOM_HASH='$SBOM_HASH' IDENT='$IDENT' npx hardhat run store_smt_root.js --network localhost 2>&1")
           
           TX_HASH=$(echo "$TX_OUTPUT" | tail -n1)
-          [[ ! "$TX_HASH" =~ ^0x[0-9a-fA-F]{64}$ ]] && { echo "ERROR: Invalid tx hash"; exit 1; }
+          [[ ! "$TX_HASH" =~ ^0x[0-9a-fA-F]{64}$ ]] && { echo "ERROR: Invalid tx hash"; echo "Output: $TX_OUTPUT"; exit 1; }
           echo "Transaction: $TX_HASH"
           echo "$TX_HASH" > tx_hash.txt
-
-      - name: Upload proof artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: proof-artifacts
-          path: |
-            proof_info.json
-            tx_hash.txt
-          retention-days: 30
 

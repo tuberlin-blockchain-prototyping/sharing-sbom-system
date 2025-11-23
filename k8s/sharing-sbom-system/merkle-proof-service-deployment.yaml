@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: merkle-proof-service
+  namespace: sharing-sbom-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: merkle-proof-service
+  template:
+    metadata:
+      labels:
+        app: merkle-proof-service
+    spec:
+      containers:
+      - name: merkle-proof-service
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/merkle-proof-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8090
+          name: http
+        env:
+        - name: PORT
+          value: "8090"
+        - name: GIN_MODE
+          value: "release"
+        volumeMounts:
+        - name: merkle-proof-service-data
+          mountPath: /app/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: merkle-proof-service-data
+        emptyDir: {}
+
