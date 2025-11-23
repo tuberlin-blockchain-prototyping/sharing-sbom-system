@@ -10,7 +10,7 @@ class Config:
     )
     PROVING_SERVICE_URL: str = os.getenv(
         "PROVING_SERVICE_URL",
-        "http://proving-service.sharing-sbom-system.svc.cluster.local:8080"
+        "http://proving-service.sharing-sbom-system.svc.cluster.local:80"
     )
     IPFS_SERVICE_URL: str = os.getenv(
         "IPFS_SERVICE_URL",
