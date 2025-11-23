@@ -3,7 +3,7 @@ import logging
 from flask import Blueprint, request, jsonify
 from models import db, ProofMapping
 from ipfs_client import ipfs_client
-from utils import normalize_sbom_hash
+from utils import normalize_root_hash
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +26,12 @@ def store():
         return jsonify({"error": "No JSON data provided"}), 400
     
     proof_base64 = data.get("proof")
-    sbom_hash_raw = data.get("sbom_hash")
+    root_hash_raw = data.get("root_hash")
     
     if not proof_base64:
         return jsonify({"error": "Missing 'proof' field"}), 400
-    if not sbom_hash_raw:
-        return jsonify({"error": "Missing 'sbom_hash' field"}), 400
+    if not root_hash_raw:
+        return jsonify({"error": "Missing 'root_hash' field"}), 400
     
     try:
         proof_bytes = base64.b64decode(proof_base64)
@@ -40,7 +40,7 @@ def store():
         return jsonify({"error": f"Invalid base64 proof: {e}"}), 400
     
     try:
-        sbom_hash = normalize_sbom_hash(sbom_hash_raw)
+        root_hash = normalize_root_hash(root_hash_raw)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     
@@ -48,12 +48,12 @@ def store():
         logger.error("IPFS not connected - cannot store proof")
         return jsonify({"error": "IPFS not connected. IPFS is required to store proofs."}), 503
     
-    existing = ProofMapping.query.filter_by(sbom_hash=sbom_hash).first()
+    existing = ProofMapping.query.filter_by(root_hash=root_hash).first()
     if existing:
-        logger.info(f"Proof already stored for SBOM hash {sbom_hash}")
+        logger.info(f"Proof already stored for root hash {root_hash}")
         return jsonify({
             "ipfs_cid": existing.ipfs_cid,
-            "sbom_hash": sbom_hash
+            "root_hash": root_hash
         }), 200
     
     try:
@@ -63,11 +63,11 @@ def store():
         logger.error(f"Failed to store on IPFS: {e}")
         return jsonify({"error": f"Failed to store on IPFS: {e}"}), 500
     
-    mapping = ProofMapping(sbom_hash=sbom_hash, ipfs_cid=cid)
+    mapping = ProofMapping(root_hash=root_hash, ipfs_cid=cid)
     try:
         db.session.add(mapping)
         db.session.commit()
-        logger.info(f"Stored mapping: {sbom_hash} -> {cid}")
+        logger.info(f"Stored mapping: {root_hash} -> {cid}")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Failed to store mapping in database: {e}")
@@ -75,13 +75,13 @@ def store():
     
     return jsonify({
         "ipfs_cid": cid,
-        "sbom_hash": sbom_hash
+        "root_hash": root_hash
     }), 201
 
-@bp.route("/retrieve/<sbom_hash>", methods=["GET"])
-def retrieve(sbom_hash):
+@bp.route("/retrieve/<root_hash>", methods=["GET"])
+def retrieve(root_hash):
     try:
-        normalized_hash = normalize_sbom_hash(sbom_hash)
+        normalized_hash = normalize_root_hash(root_hash)
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     
@@ -89,20 +89,20 @@ def retrieve(sbom_hash):
         logger.error("IPFS not connected - cannot retrieve proof")
         return jsonify({"error": "IPFS not connected. IPFS is required to retrieve proofs."}), 503
     
-    mapping = ProofMapping.query.filter_by(sbom_hash=normalized_hash).first()
+    mapping = ProofMapping.query.filter_by(root_hash=normalized_hash).first()
     if not mapping:
-        logger.warning(f"SBOM hash not found: {normalized_hash}")
-        return jsonify({"error": "SBOM hash not found"}), 404
+        logger.warning(f"Root hash not found: {normalized_hash}")
+        return jsonify({"error": "Root hash not found"}), 404
     
     try:
         proof_bytes = ipfs_client.cat(mapping.ipfs_cid)
         proof_base64 = base64.b64encode(proof_bytes).decode("utf-8")
         
-        logger.info(f"Retrieved proof from IPFS for SBOM hash: {normalized_hash}")
+        logger.info(f"Retrieved proof from IPFS for root hash: {normalized_hash}")
         return jsonify({
             "proof": proof_base64,
             "ipfs_cid": mapping.ipfs_cid,
-            "sbom_hash": normalized_hash
+            "root_hash": normalized_hash
         }), 200
     except Exception as e:
         logger.error(f"Failed to retrieve from IPFS: {e}")

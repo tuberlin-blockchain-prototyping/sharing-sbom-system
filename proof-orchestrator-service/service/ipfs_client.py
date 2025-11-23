@@ -21,7 +21,7 @@ class IPFSClient:
         
         payload = {
             "proof": proof_base64,
-            "sbom_hash": root_hash
+            "root_hash": root_hash
         }
         
         logger.info(f"Storing proof on IPFS via ipfs-service: {url}")

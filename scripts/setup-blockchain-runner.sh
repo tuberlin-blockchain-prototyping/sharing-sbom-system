@@ -22,13 +22,18 @@ kubectl apply -f "$PROJECT_ROOT/k8s/blockchain/configmap.yaml"
 kubectl apply -f "$PROJECT_ROOT/k8s/blockchain/deployment.yaml"
 kubectl apply -f "$PROJECT_ROOT/k8s/blockchain/service.yaml"
 
+# Restart deployment to pick up ConfigMap changes if pod already exists
+kubectl rollout restart deployment/hardhat-node -n blockchain || true
+
 kubectl wait --for=condition=ready pod -l app=hardhat-node -n blockchain --timeout=120s
 
 HARDHAT_POD=$(kubectl get pod -n blockchain -l app=hardhat-node -o jsonpath="{.items[0].metadata.name}")
 sleep 5
 kubectl exec -n blockchain "$HARDHAT_POD" -- wget -q -O- http://localhost:8545 || true
 
-kubectl exec -n blockchain "$HARDHAT_POD" -- ls -la /workspace/contracts/ > /dev/null
+kubectl exec -n blockchain "$HARDHAT_POD" -- ls -la /workspace/contracts/SBOMRegistryV2.sol > /dev/null
+kubectl exec -n blockchain "$HARDHAT_POD" -- ls -la /workspace/store_smt_root.js > /dev/null
+kubectl exec -n blockchain "$HARDHAT_POD" -- ls -la /workspace/store_merkle_proof.js > /dev/null
 
 CONTRACT_ADDRESS="0x5FbDB2315678afecb367f032d93F642f64180aa3"
 sleep 15
