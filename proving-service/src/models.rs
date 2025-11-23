@@ -24,8 +24,9 @@ pub struct MerklePublicInputs {
 
 #[derive(Serialize, Deserialize)]
 pub struct MerklePublicOutputs {
+    pub timestamp: u64,
     pub root_hash: [u8; 32],
     pub banned_list_hash: [u8; 32],
-    pub verified_count: usize,
     pub compliant: bool,
+    pub verified_count: usize,
 }

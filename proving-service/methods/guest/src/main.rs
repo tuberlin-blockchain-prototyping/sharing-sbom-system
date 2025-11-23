@@ -22,21 +22,23 @@ struct MerklePublicInputs {
 
 #[derive(Serialize, Deserialize)]
 struct MerklePublicOutputs {
+    timestamp: u64,
     root_hash: [u8; 32],
     banned_list_hash: [u8; 32],
-    verified_count: usize,
     compliant: bool,
+    verified_count: usize,
 }
 
 fn main() {
     let proofs_json: String = env::read();
     let banned_list: Vec<String> = env::read();
     let public_inputs: MerklePublicInputs = env::read();
+    let timestamp: u64 = env::read();
 
     let proofs: Vec<CompactMerkleProof> = match serde_json::from_str(&proofs_json) {
         Ok(p) => p,
         Err(_) => {
-            commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0);
+            commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0, timestamp);
             return;
         }
     };
@@ -44,7 +46,7 @@ fn main() {
     // Verify banned list hash
     let computed_hash = compute_banned_list_hash(&banned_list);
     if computed_hash != public_inputs.banned_list_hash {
-        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0);
+        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0, timestamp);
         return;
     }
 
@@ -53,12 +55,12 @@ fn main() {
     let expected: HashSet<&str> = banned_list.iter().map(|s| s.as_str()).collect();
     
     if received != expected {
-        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0);
+        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0, timestamp);
         return;
     }
 
     let (compliant, verified_count) = validate_proofs(&proofs, &public_inputs.root_hash);
-    commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, compliant, verified_count);
+    commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, compliant, verified_count, timestamp);
 }
 
 fn compute_banned_list_hash(banned_list: &[String]) -> [u8; 32] {
@@ -125,11 +127,13 @@ fn commit_result(
     banned_list_hash: &[u8; 32],
     compliant: bool,
     verified_count: usize,
+    timestamp: u64,
 ) {
     env::commit(&MerklePublicOutputs {
         root_hash: *root_hash,
         banned_list_hash: *banned_list_hash,
         verified_count,
         compliant,
+        timestamp,
     });
 }

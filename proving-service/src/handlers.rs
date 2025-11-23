@@ -49,6 +49,11 @@ pub async fn prove_merkle_compact(
     let proofs_json = serde_json::to_string(&req.merkle_proofs)
         .map_err(|e| actix_web::error::ErrorBadRequest(format!("Invalid proofs JSON: {e}")))?;
 
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
     tracing::info!(
         "Processing {} compact non-membership proofs for root: {} with banned list hash: {}",
         req.merkle_proofs.len(),
@@ -63,6 +68,8 @@ pub async fn prove_merkle_compact(
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write banned list: {e}")))?
         .write(&public_inputs)
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write inputs: {e}")))?
+        .write(&timestamp)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write timestamp: {e}")))?
         .build()
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to build env: {e}")))?;
 
@@ -104,26 +111,20 @@ pub async fn prove_merkle_compact(
 
     let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
     
-    // Save proof to file
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    
     let proof_data = serde_json::json!({
+        "timestamp": output.timestamp,
         "root_hash": hex::encode(output.root_hash),
         "banned_list_hash": hex::encode(output.banned_list_hash),
-        "verified_count": output.verified_count,
         "compliant": output.compliant,
-        "timestamp": timestamp,
-        "generation_duration_ms": generation_duration.as_millis(),
+        "verified_count": output.verified_count,
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
         "proof": proof_base64,
+        "generation_duration_ms": generation_duration.as_millis(),
     });
 
     std::fs::create_dir_all(&config.proofs_dir).ok();
     
-    let filename = format!("proof_{timestamp}.json");
+    let filename = format!("proof_{}.json", output.timestamp);
     let filepath = config.proofs_dir.join(&filename);
     
     match serde_json::to_string_pretty(&proof_data) {
@@ -138,14 +139,14 @@ pub async fn prove_merkle_compact(
     }
     
     let response = serde_json::json!({
+        "timestamp": output.timestamp,
         "root_hash": hex::encode(output.root_hash),
         "banned_list_hash": hex::encode(output.banned_list_hash),
-        "verified_count": output.verified_count,
         "compliant": output.compliant,
-        "timestamp": timestamp,
-        "generation_duration_ms": generation_duration.as_millis(),
+        "verified_count": output.verified_count,
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
         "proof": proof_base64,
+        "generation_duration_ms": generation_duration.as_millis(),
     });
 
     Ok(HttpResponse::Ok().json(response))

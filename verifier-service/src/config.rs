@@ -1,5 +1,6 @@
 use std::env;
 
+#[derive(Debug, Clone)]
 pub struct Config {
     pub port: u16,
 }
@@ -7,11 +8,19 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         let port = env::var("PORT")
-            .unwrap_or_else(|_| "8080".to_string())
-            .parse::<u16>()
-            .unwrap_or(8080);
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(8082);
 
         Self { port }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            port: 8082,
+        }
     }
 }
 

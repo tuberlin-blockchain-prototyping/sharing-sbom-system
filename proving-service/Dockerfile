@@ -49,9 +49,9 @@ COPY --from=builder /root/.risc0 /root/.risc0
 # Create proofs directory
 RUN mkdir -p /app/proofs
 
-EXPOSE 8080
+EXPOSE 8081
 
-ENV PORT=8080
+ENV PORT=8081
 ENV RUST_LOG=info
 ENV PATH="/root/.risc0/bin:${PATH}"
 

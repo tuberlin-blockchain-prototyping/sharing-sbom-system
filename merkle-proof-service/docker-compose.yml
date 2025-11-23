@@ -1,0 +1,15 @@
+services:
+  merkle-proof-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      no_cache: true
+    ports:
+      - "8090:8090"
+    environment:
+      - PORT=8090
+      - GIN_MODE=release
+    volumes:
+      - ./data:/app/data
+    container_name: merkle-proof-service
+

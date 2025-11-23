@@ -1,0 +1,16 @@
+services:
+  proving-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      no_cache: true
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - RUST_LOG=info
+      - PROOFS_DIR=/app/proofs
+    volumes:
+      - ./proofs:/app/proofs
+    container_name: proving-service
+
