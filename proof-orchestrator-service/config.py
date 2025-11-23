@@ -8,9 +8,13 @@ class Config:
         "MERKLE_PROOF_SERVICE_URL",
         "http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090"
     )
+    PROVING_SERVICE_URL: str = os.getenv(
+        "PROVING_SERVICE_URL",
+        "http://proving-service.sharing-sbom-system.svc.cluster.local:8080"
+    )
     IPFS_SERVICE_URL: str = os.getenv(
         "IPFS_SERVICE_URL",
-        "http://ipfs-service.sharing-sbom-system.svc.cluster.local:8080"
+        "http://ipfs-service.sharing-sbom-system.svc.cluster.local:80"
     )
     
     BLOCKCHAIN_CONTRACT_ADDRESS: str = os.getenv(
@@ -24,6 +28,7 @@ class Config:
     )
     
     MERKLE_PROOF_TIMEOUT: int = int(os.getenv("MERKLE_PROOF_TIMEOUT", "1800"))
+    PROVING_TIMEOUT: int = int(os.getenv("PROVING_TIMEOUT", "1800"))
     IPFS_TIMEOUT: int = int(os.getenv("IPFS_TIMEOUT", "300"))
     BLOCKCHAIN_TIMEOUT: int = int(os.getenv("BLOCKCHAIN_TIMEOUT", "300"))
 
