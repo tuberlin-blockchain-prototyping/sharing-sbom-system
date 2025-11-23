@@ -1,0 +1,39 @@
+sequenceDiagram
+    autonumber
+    participant Customer
+    participant Proof_Orchestrator_Service as Proof Orchestrator Service
+    participant Merkle_Proof_Service as Merkle Proof Service
+    participant Proving_Service as Proving Service
+    participant IPFS_Service as IPFS Service
+    participant Blockchain as Blockchain (Smart Contract)
+
+    Customer->>Proof_Orchestrator_Service: Request (root_hash, banned_list)
+    activate Proof_Orchestrator_Service
+
+    Proof_Orchestrator_Service->>Merkle_Proof_Service: Request Merkle Proofs (root_hash, banned_list)
+    activate Merkle_Proof_Service
+    note right of Merkle_Proof_Service: Retrieve SMT from private database<br/>using root_hash<br/>Generate merkle proofs for banned packages
+    Merkle_Proof_Service-->>Proof_Orchestrator_Service: Return Merkle Proofs (merkle_proofs, depth, root)
+    deactivate Merkle_Proof_Service
+
+    Proof_Orchestrator_Service->>Proving_Service: Request ZK Proof (root, depth, merkle_proofs)
+    activate Proving_Service
+    note right of Proving_Service: Verify merkle proofs<br/>Generate zero-knowledge proof<br/>Check compliance status
+    Proving_Service-->>Proof_Orchestrator_Service: Return ZK Proof (proof, banned_list_hash, compliant, root_hash)
+    deactivate Proving_Service
+
+    Proof_Orchestrator_Service->>IPFS_Service: Store ZK Proof (proof, root_hash)
+    activate IPFS_Service
+    note right of IPFS_Service: Store proof under root_hash<br/>on IPFS network
+    IPFS_Service-->>Proof_Orchestrator_Service: Return IPFS CID
+    deactivate IPFS_Service
+
+    Proof_Orchestrator_Service->>Blockchain: Store Metadata (root_hash, ipfs_cid, banned_list_hash, compliant)
+    activate Blockchain
+    note right of Blockchain: Confirm transaction
+    Blockchain-->>Proof_Orchestrator_Service: Return Transaction Hash
+    deactivate Blockchain
+
+    Proof_Orchestrator_Service-->>Customer: Response (ipfs_cid, tx_hash, compliance_status, root_hash)
+    deactivate Proof_Orchestrator_Service
+

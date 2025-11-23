@@ -1,0 +1,39 @@
+flowchart TB
+    classDef microservice shape:hexagon,fill:#e1f5fe,stroke:#0277bd,stroke-width:2px;
+    classDef storage shape:cylinder,fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef blockchain shape:cylinder,fill:#cfc,stroke:#388e3c,stroke-width:2px;
+    classDef external fill:#f3f3f3,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef contract shape:parallelogram,fill:#e6ffed,stroke:#388e3c,stroke-width:2px;
+    TBE["Build Environment<br/>(e.g., GitHub Actions)"]:::external
+    subgraph Core_Services [Core Microservices]
+        Prover{{proving-service<br/><i>Rust / Risc0</i>}}:::microservice
+        IPFS_Svc{{ipfs-service<br/><i>Python</i>}}:::microservice
+        Verifier{{verifier-service<br/><i>Rust</i>}}:::microservice
+    end
+    subgraph Decentralized_Infrastructure [Decentralized Infrastructure]
+        direction LR
+        
+        subgraph L1_Blockchain [L1 Blockchain]
+            direction TB
+            SmartContract[/Smart Contract/]:::contract
+            Chain[("Blockchain")]:::blockchain
+            SmartContract -- "Write to Blockchain<br/>(H(SBOM), ipfsCid, ...)" --> Chain
+        end
+        
+        subgraph Off_Chain_Storage [Off-Chain Storage]
+            direction TB
+            IPFS_Net((IPFS Network)):::storage
+        end
+    end
+    
+    subgraph Public_Data [Public Data Sources]
+        CVE[(CVE Database)]:::storage
+    end
+    TBE -- "Request CVE dataset" --> CVE
+    TBE -- "Prove request" --> Prover
+    TBE -- "Store metadata transaction" --> SmartContract
+    TBE -- "Store data (e.g., Proof Receipt)" --> IPFS_Svc
+    
+    Prover -- "Proof Receipt" --> TBE
+    Chain -- "Transaction Receipt" --> TBE
+    IPFS_Svc -- "Pin data to network" --> IPFS_Net

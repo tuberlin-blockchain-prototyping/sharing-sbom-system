@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    participant Vendor
+    participant GitHub_Repository as GitHub Repository
+    participant GitHub_Actions as GitHub Actions
+    participant Merkle_Proof_Service as Merkle Proof Service
+    participant Blockchain as Blockchain (Smart Contract)
+
+    Vendor->>GitHub_Repository: git push
+    GitHub_Repository->>GitHub_Actions: Trigger workflow
+    
+    note right of GitHub_Actions: Build Docker image<br/>Generate SBOM (CycloneDX)<br/>Calculate SBOM hash<br/>Calculate Software Digest
+
+    GitHub_Actions->>Merkle_Proof_Service: Build SMT from SBOM
+    activate Merkle_Proof_Service
+    note right of Merkle_Proof_Service: Build Sparse Merkle Tree<br/>from SBOM packages<br/>Store SMT in private database<br/>under Root Hash ID
+    Merkle_Proof_Service-->>GitHub_Actions: Return Root Hash
+    deactivate Merkle_Proof_Service
+
+    GitHub_Actions->>Blockchain: Store SMT Root (root_hash, software_digest, sbom_hash, identifier, timestamp)
+    activate Blockchain
+    note right of Blockchain: Confirm transaction
+    Blockchain-->>GitHub_Actions: Return Transaction Hash
+    deactivate Blockchain
+
+    note right of GitHub_Actions: Generate and sign build attestation<br/>(using OIDC token)
+

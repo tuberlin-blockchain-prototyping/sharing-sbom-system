@@ -4,36 +4,66 @@ flowchart TB
     classDef blockchain shape:cylinder,fill:#cfc,stroke:#388e3c,stroke-width:2px;
     classDef external fill:#f3f3f3,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5;
     classDef contract shape:parallelogram,fill:#e6ffed,stroke:#388e3c,stroke-width:2px;
-    TBE["Build Environment<br/>(e.g., GitHub Actions)"]:::external
-    subgraph Core_Services [Core Microservices]
-        Prover{{proving-service<br/><i>Rust / Risc0</i>}}:::microservice
-        IPFS_Svc{{ipfs-service<br/><i>Python</i>}}:::microservice
-        Verifier{{verifier-service<br/><i>Rust</i>}}:::microservice
-    end
-    subgraph Decentralized_Infrastructure [Decentralized Infrastructure]
+
+    %% External Layer
+    subgraph External [" "]
         direction LR
+        TBE["Build Environment<br/>(GitHub Actions)"]:::external
+        Customer["Customer"]:::external
+    end
+
+    %% Services Layer
+    subgraph Level2 [" "]
+        direction TB
+        Orchestrator{{Proof Orchestrator Service<br/><i>Python</i>}}:::microservice
         
-        subgraph L1_Blockchain [L1 Blockchain]
-            direction TB
-            SmartContract[/Smart Contract/]:::contract
-            Chain[("Blockchain")]:::blockchain
-            SmartContract -- "Write to Blockchain<br/>(H(SBOM), ipfsCid, ...)" --> Chain
+        subgraph Level2Services [" "]
+            direction LR
+            MerkleSvc{{Merkle Proof Service<br/><i>Go</i>}}:::microservice
+            Prover{{Proving Service<br/><i>Rust / Risc0</i>}}:::microservice
+            IPFS_Svc{{IPFS Service<br/><i>Python</i>}}:::microservice
+            Verifier{{Verifier Service<br/><i>Rust</i>}}:::microservice
         end
-        
-        subgraph Off_Chain_Storage [Off-Chain Storage]
-            direction TB
+    end
+
+    %% Storage Layer
+    subgraph Storage ["Storage"]
+        direction LR
+        subgraph Private_Storage ["Private Storage"]
+            MerkleDB[("Private Database<br/>(SMT by root_hash)")]:::storage
+        end
+        subgraph Public_Storage ["Public Storage"]
             IPFS_Net((IPFS Network)):::storage
         end
     end
-    
-    subgraph Public_Data [Public Data Sources]
-        CVE[(CVE Database)]:::storage
+
+    %% Blockchain Layer
+    subgraph Blockchain ["Blockchain"]
+        direction TB
+        SmartContract[/Smart Contract/]:::contract
+        Chain[("Blockchain")]:::blockchain
+        SmartContract --> Chain
     end
-    TBE -- "Request CVE dataset" --> CVE
-    TBE -- "Prove request" --> Prover
-    TBE -- "Store metadata transaction" --> SmartContract
-    TBE -- "Store data (e.g., Proof Receipt)" --> IPFS_Svc
-    
-    Prover -- "Proof Receipt" --> TBE
-    Chain -- "Transaction Receipt" --> TBE
-    IPFS_Svc -- "Pin data to network" --> IPFS_Net
+
+    %% CI/CD Flow
+    TBE -->|"Build SMT from SBOM"| MerkleSvc
+    MerkleSvc -->|"Store SMT"| MerkleDB
+    MerkleSvc -.->|"Root Hash"| TBE
+    TBE -->|"Store SMT Root"| SmartContract
+
+    %% Proof Generation Flow
+    Customer -->|"Request Proof<br/>(root_hash, banned_list)"| Orchestrator
+    Orchestrator -->|"Request Merkle Proofs"| MerkleSvc
+    MerkleSvc -->|"Retrieve SMT"| MerkleDB
+    MerkleSvc -.->|"Merkle Proofs"| Orchestrator
+    Orchestrator -->|"Request ZK Proof"| Prover
+    Prover -.->|"ZK Proof"| Orchestrator
+    Orchestrator -->|"Store Proof"| IPFS_Svc
+    IPFS_Svc -->|"Pin to network<br/>(under root_hash)"| IPFS_Net
+    IPFS_Svc -.->|"IPFS CID"| Orchestrator
+    Orchestrator -->|"Store Metadata"| SmartContract
+    SmartContract -.->|"Transaction Hash"| Orchestrator
+    Orchestrator -.->|"Response<br/>(ipfs_cid, tx_hash, compliance)"| Customer
+
+    %% Verification Flow
+    Customer -->|"Verify Proof"| Verifier
