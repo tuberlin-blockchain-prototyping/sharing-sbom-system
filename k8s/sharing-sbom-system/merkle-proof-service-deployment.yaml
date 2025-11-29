@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: merkle-proof-service
-        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/merkle-proof-service:3b77130
+        image: ghcr.io/tuberlin-blockchain-prototyping/sharing-sbom-system/merkle-proof-service:182e53d
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8090
