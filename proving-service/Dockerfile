@@ -44,6 +44,9 @@ COPY --from=builder /app/target/release/proving-service /app/proving-service
 # Copy Risc0 runtime binaries
 COPY --from=builder /root/.risc0 /root/.risc0
 
+# Create symlink for r0vm so it's available in PATH
+RUN find /root/.risc0/extensions -name "r0vm" -exec ln -sf {} /root/.risc0/bin/r0vm \;
+
 # Create proofs directory
 RUN mkdir -p /app/proofs
 

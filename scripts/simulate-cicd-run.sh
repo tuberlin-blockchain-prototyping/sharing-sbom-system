@@ -9,7 +9,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-SBOM_FILE="${PROJECT_ROOT}/merkle-proof-service/examples/frontend.node-modules.sbom.cdx.json"
+SBOM_FILE="${PROJECT_ROOT}/merkle-proof-service/examples/sbom.json"
 CONTRACT_ADDR="0x5FbDB2315678afecb367f032d93F642f64180aa3"
 
 [ ! -f "$SBOM_FILE" ] && { echo "ERROR: SBOM file not found: $SBOM_FILE"; exit 1; }
