@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'k8s/**'
+      - "k8s/**"
 
 jobs:
   build-and-scan:
@@ -41,8 +41,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: ./dummyapp2
-          file: ./dummyapp2/Dockerfile
+          context: ./dummyapp1
+          file: ./dummyapp1/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -121,7 +121,7 @@ jobs:
           MERKLE_PROOF_SERVICE_URL="http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090"
           SBOM_FILE="sboms/app.json"
           [ ! -f "$SBOM_FILE" ] && { echo "ERROR: SBOM file not found"; exit 1; }
-          
+
           RESPONSE_FILE=$(mktemp)
           HTTP_CODE=$(curl -X POST "$MERKLE_PROOF_SERVICE_URL/build" \
             -H "Content-Type: application/json" \
@@ -130,15 +130,15 @@ jobs:
             --write-out "%{http_code}" \
             --output "$RESPONSE_FILE" \
             --silent)
-          
+
           [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ] && { echo "ERROR: SMT build failed ($HTTP_CODE)"; cat "$RESPONSE_FILE"; exit 1; }
-          
+
           RESPONSE_BODY=$(cat "$RESPONSE_FILE")
           echo "$RESPONSE_BODY" | jq .
-          
+
           ROOT_HASH=$(echo "$RESPONSE_BODY" | jq -r '.root')
           [ -z "$ROOT_HASH" ] || [ "$ROOT_HASH" == "null" ] && { echo "ERROR: Root hash not found in response"; exit 1; }
-          
+
           echo "root_hash=$ROOT_HASH" >> $GITHUB_OUTPUT
           echo "SMT Root Hash: $ROOT_HASH"
           rm -f "$RESPONSE_FILE"
@@ -156,39 +156,39 @@ jobs:
           ROOT_HASH="${{ steps.build_smt.outputs.root_hash }}"
           SBOM_HASH="${{ steps.sbom_hash.outputs.sbom_hash }}"
           IMAGE_DIGEST="${{ needs.build-and-scan.outputs.image_digest }}"
-          
+
           [[ "$IMAGE_DIGEST" == sha256:* ]] && SOFTWARE_DIGEST="${IMAGE_DIGEST#sha256:}" || SOFTWARE_DIGEST="$IMAGE_DIGEST"
           [[ ! "$SOFTWARE_DIGEST" =~ ^[0-9a-fA-F]{64}$ ]] && { echo "ERROR: Invalid digest format"; exit 1; }
-          
+
           echo "Writing SMT root to blockchain:"
           echo "  Root Hash: $ROOT_HASH"
           echo "  Software Digest: sha256:$SOFTWARE_DIGEST"
           echo "  SBOM Hash: $SBOM_HASH"
           echo "  Identifier: github-ci-${{ github.run_id }}"
-          
+
           HARDHAT_POD=$(kubectl get pods -n blockchain -l app=hardhat-node -o jsonpath='{.items[0].metadata.name}')
           [ -z "$HARDHAT_POD" ] && { echo "ERROR: Hardhat node not found"; exit 1; }
-          
+
           echo "Using Hardhat pod: $HARDHAT_POD"
           IDENT="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]'):${{ github.run_id }}"
-          
+
           echo "Executing blockchain script with:"
           echo "  ADDR=$CONTRACT_ADDR"
           echo "  ROOT_HASH=$ROOT_HASH"
           echo "  SOFTWARE_DIGEST=$SOFTWARE_DIGEST"
           echo "  SBOM_HASH=$SBOM_HASH"
           echo "  IDENT=$IDENT"
-          
+
           TX_OUTPUT=$(kubectl exec -n blockchain "$HARDHAT_POD" -- sh -c "cd /workspace && ADDR='$CONTRACT_ADDR' ROOT_HASH='$ROOT_HASH' SOFTWARE_DIGEST='$SOFTWARE_DIGEST' SBOM_HASH='$SBOM_HASH' IDENT='$IDENT' npx hardhat run store_smt_root.js --network localhost 2>&1") || {
             echo "ERROR: Blockchain script execution failed"
             echo "Full output:"
             echo "$TX_OUTPUT"
             exit 1
           }
-          
+
           echo "Script output:"
           echo "$TX_OUTPUT"
-          
+
           if echo "$TX_OUTPUT" | grep -q "SKIPPED"; then
             echo "SMT root already registered, skipping blockchain write"
             echo "SKIPPED" > tx_hash.txt
@@ -203,4 +203,3 @@ jobs:
             echo "Transaction: $TX_HASH"
             echo "$TX_HASH" > tx_hash.txt
           fi
-
