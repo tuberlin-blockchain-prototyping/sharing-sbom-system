@@ -41,8 +41,8 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: ./dummyapp1
-          file: ./dummyapp1/Dockerfile
+          context: ./dummyapp
+          file: ./dummyapp/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
