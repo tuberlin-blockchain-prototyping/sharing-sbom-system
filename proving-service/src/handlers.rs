@@ -2,7 +2,6 @@ use actix_web::{web, HttpResponse, Result as ActixResult};
 use base64::{Engine as _, engine::general_purpose};
 use methods::{SBOM_VALIDATOR_ELF, SBOM_VALIDATOR_ID};
 use risc0_zkvm::{default_prover, serde::to_vec, ExecutorEnv};
-use sha2::{Digest, Sha256};
 use std::time::Instant;
 
 use crate::config::Config;
@@ -38,12 +37,8 @@ pub async fn prove_merkle_compact(
         validate_compact_proof(proof)?;
     }
 
-    let banned_list: Vec<String> = req.merkle_proofs.iter().map(|p| p.purl.clone()).collect();
-    let banned_list_hash = compute_banned_list_hash(&banned_list);
-
     let public_inputs = MerklePublicInputs {
         root_hash,
-        banned_list_hash,
     };
 
     let proofs_json = serde_json::to_string(&req.merkle_proofs)
@@ -55,17 +50,14 @@ pub async fn prove_merkle_compact(
         .as_secs();
 
     tracing::info!(
-        "Processing {} compact non-membership proofs for root: {} with banned list hash: {}",
+        "Processing {} compact non-membership proofs for root: {}",
         req.merkle_proofs.len(),
-        req.root,
-        hex::encode(banned_list_hash)
+        req.root
     );
 
     let env = ExecutorEnv::builder()
         .write(&proofs_json)
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write proofs: {e}")))?
-        .write(&banned_list)
-        .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write banned list: {e}")))?
         .write(&public_inputs)
         .map_err(|e| actix_web::error::ErrorInternalServerError(format!("Failed to write inputs: {e}")))?
         .write(&timestamp)
@@ -212,11 +204,4 @@ fn validate_compact_proof(proof: &crate::models::CompactMerkleProof) -> actix_we
     }
 
     Ok(())
-}
-
-fn compute_banned_list_hash(banned_list: &[String]) -> [u8; 32] {
-    let json = serde_json::to_string(banned_list).unwrap_or_else(|_| "[]".to_string());
-    let mut hasher = Sha256::new();
-    hasher.update(json.as_bytes());
-    hasher.finalize().into()
 }

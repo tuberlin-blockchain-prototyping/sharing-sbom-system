@@ -1,7 +1,6 @@
 use risc0_zkvm::guest::env;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashSet;
 
 use sbom_common::{hash_value, hash_pair, hex_to_bytes32, bitmap_bit, path_bit, DEFAULTS};
 
@@ -17,7 +16,6 @@ struct CompactMerkleProof {
 #[derive(Serialize, Deserialize)]
 struct MerklePublicInputs {
     root_hash: [u8; 32],
-    banned_list_hash: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize)]
@@ -31,36 +29,24 @@ struct MerklePublicOutputs {
 
 fn main() {
     let proofs_json: String = env::read();
-    let banned_list: Vec<String> = env::read();
     let public_inputs: MerklePublicInputs = env::read();
     let timestamp: u64 = env::read();
 
     let proofs: Vec<CompactMerkleProof> = match serde_json::from_str(&proofs_json) {
         Ok(p) => p,
         Err(_) => {
-            commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0, timestamp);
+            let banned_list: Vec<String> = vec![];
+            let banned_list_hash = compute_banned_list_hash(&banned_list);
+            commit_result(&public_inputs.root_hash, &banned_list_hash, false, 0, timestamp);
             return;
         }
     };
 
-    // Verify banned list hash
-    let computed_hash = compute_banned_list_hash(&banned_list);
-    if computed_hash != public_inputs.banned_list_hash {
-        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0, timestamp);
-        return;
-    }
-
-    // Verify completeness: all banned packages have proofs
-    let received: HashSet<&str> = proofs.iter().map(|p| p.purl.as_str()).collect();
-    let expected: HashSet<&str> = banned_list.iter().map(|s| s.as_str()).collect();
-    
-    if received != expected {
-        commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, false, 0, timestamp);
-        return;
-    }
+    let banned_list: Vec<String> = proofs.iter().map(|p| p.purl.clone()).collect();
+    let banned_list_hash = compute_banned_list_hash(&banned_list);
 
     let (compliant, verified_count) = validate_proofs(&proofs, &public_inputs.root_hash);
-    commit_result(&public_inputs.root_hash, &public_inputs.banned_list_hash, compliant, verified_count, timestamp);
+    commit_result(&public_inputs.root_hash, &banned_list_hash, compliant, verified_count, timestamp);
 }
 
 fn compute_banned_list_hash(banned_list: &[String]) -> [u8; 32] {

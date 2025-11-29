@@ -19,7 +19,6 @@ pub struct ProveCompactMerkleRequest {
 #[derive(Serialize, Deserialize)]
 pub struct MerklePublicInputs {
     pub root_hash: [u8; 32],
-    pub banned_list_hash: [u8; 32],
 }
 
 #[derive(Serialize, Deserialize)]
