@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: proof-orchestrator-service
+  namespace: sharing-sbom-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: proof-orchestrator-service
+  namespace: sharing-sbom-system
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: proof-orchestrator-service
+  namespace: sharing-sbom-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: proof-orchestrator-service
+subjects:
+- kind: ServiceAccount
+  name: proof-orchestrator-service
+  namespace: sharing-sbom-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: proof-orchestrator-service-blockchain
+  namespace: blockchain
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/exec"]
+  verbs: ["get", "list", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: proof-orchestrator-service-blockchain
+  namespace: blockchain
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: proof-orchestrator-service-blockchain
+subjects:
+- kind: ServiceAccount
+  name: proof-orchestrator-service
+  namespace: sharing-sbom-system
