@@ -20,9 +20,10 @@ async def generate_proof(request: ProofGenerationRequest):
             status="success",
             ipfs_cid=result["ipfs_cid"],
             tx_hash=result["tx_hash"],
-            compliance_status=result["compliance_status"],
+            compliance_status=result.get("compliance_status"),
             root_hash=result["root_hash"],
             composite_hash=result["composite_hash"],
+            warning=result.get("warning"),
         )
     except ValueError as e:
         logger.error(f"Validation error: {e}")

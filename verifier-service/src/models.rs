@@ -21,7 +21,10 @@ impl VerifyProofRequest {
             return Err("Image ID cannot be empty".to_string());
         }
         if self.image_id.len() != 8 {
-            return Err(format!("Image ID must have 8 values, got {}", self.image_id.len()));
+            return Err(format!(
+                "Image ID must have 8 values, got {}",
+                self.image_id.len()
+            ));
         }
         if self.root_hash.is_empty() {
             return Err("Root hash cannot be empty".to_string());

@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, Result as ActixResult};
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 use risc0_zkvm::{serde::from_slice, Receipt};
 use tracing;
 
@@ -15,8 +15,7 @@ pub async fn health() -> ActixResult<HttpResponse> {
 pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpResponse> {
     tracing::debug!("Received verification request");
 
-    req.validate()
-        .map_err(|e| Error::InvalidProof(e))?;
+    req.validate().map_err(|e| Error::InvalidProof(e))?;
 
     let receipt = deserialize_receipt(&req.proof)?;
     let image_id = parse_image_id(&req.image_id)?;
@@ -36,7 +35,8 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
         return Err(Error::VerificationFailed(format!(
             "Root hash mismatch: request has {}, proof contains {}",
             req.root_hash, decoded_root_hash
-        )).into());
+        ))
+        .into());
     }
 
     let decoded_banned_hash = hex::encode(outputs.banned_list_hash);
@@ -44,28 +44,27 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
         return Err(Error::VerificationFailed(format!(
             "Banned list hash mismatch: request has {}, proof contains {}",
             req.banned_list_hash, decoded_banned_hash
-        )).into());
+        ))
+        .into());
     }
 
     if req.compliant != outputs.compliant {
         return Err(Error::VerificationFailed(format!(
             "Compliant flag mismatch: request has {}, proof contains {}",
             req.compliant, outputs.compliant
-        )).into());
+        ))
+        .into());
     }
-
 
     if req.timestamp != outputs.timestamp {
         return Err(Error::VerificationFailed(format!(
             "Timestamp mismatch: request has {}, proof contains {}",
             req.timestamp, outputs.timestamp
-        )).into());
+        ))
+        .into());
     }
 
-    tracing::info!(
-        "Proof verified: compliant={}",
-        outputs.compliant
-    );
+    tracing::info!("Proof verified: compliant={}", outputs.compliant);
 
     let response = VerifyProofResponse {
         proof_verified: true,
@@ -87,9 +86,10 @@ fn deserialize_receipt(proof_base64: &str) -> Result<Receipt> {
         .map_err(|e| Error::InvalidProof(format!("Invalid base64: {}", e)))?;
 
     if proof_bytes.len() % 4 != 0 {
-        return Err(Error::InvalidProof(
-            format!("Proof length {} is not a multiple of 4", proof_bytes.len())
-        ));
+        return Err(Error::InvalidProof(format!(
+            "Proof length {} is not a multiple of 4",
+            proof_bytes.len()
+        )));
     }
 
     let proof_u32: Vec<u32> = proof_bytes
