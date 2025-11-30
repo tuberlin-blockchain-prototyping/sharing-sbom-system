@@ -29,7 +29,7 @@ echo ""
 echo "Step 1: Validate proof structure..."
 REQUIRED_FIELDS=("proof" "image_id" "root_hash" "banned_list_hash" "compliant" "verified_count" "timestamp")
 for field in "${REQUIRED_FIELDS[@]}"; do
-    jq -e ".$field" "$PROOF_FILE" > /dev/null 2>&1 || { echo "ERROR: Missing field: $field"; exit 1; }
+    jq -e "has(\"$field\")" "$PROOF_FILE" > /dev/null 2>&1 || { echo "ERROR: Missing field: $field"; exit 1; }
 done
 echo "Valid"
 echo ""
