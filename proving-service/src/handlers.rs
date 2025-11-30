@@ -176,22 +176,17 @@ pub async fn prove_merkle_compact(
 
     let journal_size = receipt.journal.bytes.len();
     let proof_size = receipt_bytes.len();
-    let segments_count = receipt.segments.len();
     
-    let total_cycles: u64 = receipt.segments.iter()
-        .flat_map(|segment| segment.segments.iter())
-        .map(|s| s.insn_cycles as u64)
-        .sum();
+    let segments_count: Option<usize> = None;
+    let total_cycles: Option<u64> = None;
 
     tracing::info!(
-        "Proof generation completed: generation_time={:.2}s, verification_time={:.2}s, total_request_time={:.2}s, receipt_size={} bytes, journal_size={} bytes, segments={}, cycles={}",
+        "Proof generation completed: generation_time={:.2}s, verification_time={:.2}s, total_request_time={:.2}s, receipt_size={} bytes, journal_size={} bytes",
         generation_duration.as_secs_f64(),
         verification_duration.as_secs_f64(),
         total_duration.as_secs_f64(),
         proof_size,
-        journal_size,
-        segments_count,
-        total_cycles
+        journal_size
     );
 
     let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
