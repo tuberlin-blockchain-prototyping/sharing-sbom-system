@@ -22,9 +22,10 @@ sequenceDiagram
     Proving_Service-->>Proof_Orchestrator_Service: Return ZK Proof (proof, banned_list_hash, compliant, root_hash)
     deactivate Proving_Service
 
-    Proof_Orchestrator_Service->>IPFS_Service: Store ZK Proof (proof, root_hash)
+    note right of Proof_Orchestrator_Service: Compute composite_hash =<br/>SHA256(root_hash + banned_list_hash)
+    Proof_Orchestrator_Service->>IPFS_Service: Store ZK Proof (proof, composite_hash)
     activate IPFS_Service
-    note right of IPFS_Service: Store proof under root_hash<br/>on IPFS network
+    note right of IPFS_Service: Store proof under composite_hash<br/>on IPFS network
     IPFS_Service-->>Proof_Orchestrator_Service: Return IPFS CID
     deactivate IPFS_Service
 
@@ -34,6 +35,6 @@ sequenceDiagram
     Blockchain-->>Proof_Orchestrator_Service: Return Transaction Hash
     deactivate Blockchain
 
-    Proof_Orchestrator_Service-->>Customer: Response (ipfs_cid, tx_hash, compliance_status, root_hash)
+    Proof_Orchestrator_Service-->>Customer: Response (ipfs_cid, tx_hash, compliance_status, root_hash, composite_hash)
     deactivate Proof_Orchestrator_Service
 

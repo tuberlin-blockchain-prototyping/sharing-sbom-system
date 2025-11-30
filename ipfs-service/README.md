@@ -14,8 +14,10 @@ Flask service for storing and retrieving ZKP proofs on IPFS.
 ## Database
 
 Uses SQLite database (`/data/ipfs.db`) to store mappings:
-- `sbom_hash` (64 hex chars) -> `ipfs_cid`
+- `composite_hash` (64 hex chars) -> `ipfs_cid`
 - Timestamps for audit trail
+
+The composite hash is computed as `SHA256(root_hash + banned_list_hash)` where both hashes are normalized (lowercase, no 0x prefix).
 
 ## API Endpoints
 
@@ -37,7 +39,7 @@ Store a proof on IPFS and create mapping.
 ```json
 {
   "proof": "<base64-encoded-proof>",
-  "sbom_hash": "<64-char-hex-hash>"
+  "composite_hash": "<64-char-hex-hash>"
 }
 ```
 
@@ -45,19 +47,19 @@ Store a proof on IPFS and create mapping.
 ```json
 {
   "ipfs_cid": "Qm...",
-  "sbom_hash": "a1b2c3..."
+  "composite_hash": "a1b2c3..."
 }
 ```
 
-### `GET /retrieve/<sbom_hash>`
-Retrieve proof from IPFS using SBOM hash.
+### `GET /retrieve/<composite_hash>`
+Retrieve proof from IPFS using composite hash.
 
 **Response:**
 ```json
 {
   "proof": "<base64-encoded-proof>",
   "ipfs_cid": "Qm...",
-  "sbom_hash": "a1b2c3..."
+  "composite_hash": "a1b2c3..."
 }
 ```
 
@@ -72,7 +74,7 @@ List all stored mappings (paginated).
   "offset": 0,
   "mappings": [
     {
-      "sbom_hash": "a1b2c3...",
+      "composite_hash": "a1b2c3...",
       "ipfs_cid": "Qm...",
       "created_at": "2024-01-01T00:00:00"
     }

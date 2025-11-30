@@ -47,13 +47,16 @@ RESPONSE=$(curl -X POST "http://localhost:8080/generate-proof" \
 IPFS_CID=$(echo "$RESPONSE" | jq -r '.ipfs_cid // empty')
 TX_HASH=$(echo "$RESPONSE" | jq -r '.tx_hash // empty')
 COMPLIANT=$(echo "$RESPONSE" | jq -r '.compliance_status // false')
+COMPOSITE_HASH=$(echo "$RESPONSE" | jq -r '.composite_hash // empty')
 
 [ -z "$IPFS_CID" ] && { echo "ERROR: IPFS CID not found"; echo "$RESPONSE"; kill $ORCH_PID 2>/dev/null; exit 1; }
+[ -z "$COMPOSITE_HASH" ] && { echo "ERROR: Composite hash not found"; echo "$RESPONSE"; kill $ORCH_PID 2>/dev/null; exit 1; }
 
 echo "Proof generated!"
 echo "IPFS CID: $IPFS_CID"
 echo "TX Hash: $TX_HASH"
 echo "Compliant: $COMPLIANT"
+echo "Composite Hash: $COMPOSITE_HASH"
 echo ""
 
 echo "Step 3: Retrieve from IPFS..."
@@ -62,19 +65,20 @@ IPFS_PID=$!
 trap "kill $IPFS_PID $ORCH_PID 2>/dev/null" EXIT
 
 sleep 2
-PROOF_RESPONSE=$(curl -s --max-time 300 "http://localhost:8081/retrieve/$ROOT_HASH")
+PROOF_RESPONSE=$(curl -s --max-time 300 "http://localhost:8081/retrieve/$COMPOSITE_HASH")
 PROOF_BASE64=$(echo "$PROOF_RESPONSE" | jq -r '.proof // empty')
 
 [ -z "$PROOF_BASE64" ] && { echo "ERROR: Failed to retrieve proof"; echo "$PROOF_RESPONSE"; kill $IPFS_PID $ORCH_PID 2>/dev/null; exit 1; }
 
 mkdir -p "$OUTPUT_DIR"
-OUTPUT_FILE="$OUTPUT_DIR/proof_${ROOT_HASH}.json"
+OUTPUT_FILE="$OUTPUT_DIR/proof_${COMPOSITE_HASH}.json"
 echo "$PROOF_BASE64" | base64 -d | jq . > "$OUTPUT_FILE"
 
 echo "Proof saved: $OUTPUT_FILE"
 echo ""
 echo "=== Complete ==="
 echo "Root Hash: $ROOT_HASH"
+echo "Composite Hash: $COMPOSITE_HASH"
 echo "IPFS CID: $IPFS_CID"
 echo "Compliant: $COMPLIANT"
 echo "Proof: $OUTPUT_FILE"

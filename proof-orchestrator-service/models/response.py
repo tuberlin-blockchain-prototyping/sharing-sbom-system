@@ -11,4 +11,5 @@ class ProofGenerationResponse(BaseModel):
     tx_hash: str
     compliance_status: bool
     root_hash: str
+    composite_hash: str
 
