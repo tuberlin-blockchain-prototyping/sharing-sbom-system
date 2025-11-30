@@ -78,13 +78,13 @@ def get_container_id(service_name: str, namespace: str) -> Optional[str]:
             "-l",
             f"app={service_name}",
             "-o",
-            "jsonpath='{.items[0].status.containerStatuses[0].containerID}'",
+            "jsonpath='{.items[0].status.containerStatuses[0].imageID}'",
         ]
         result = subprocess.run(
             cmd, capture_output=True, text=True, check=True, timeout=10
         )
-        container_id = result.stdout.strip().strip("'\"")
-        return container_id if container_id else None
+        image_id = result.stdout.strip().strip("'\"")
+        return image_id if image_id else None
     except (
         subprocess.CalledProcessError,
         subprocess.TimeoutExpired,
@@ -94,10 +94,10 @@ def get_container_id(service_name: str, namespace: str) -> Optional[str]:
 
 
 def get_all_container_ids(namespace: str) -> Dict[str, Optional[str]]:
-    container_ids = {}
+    image_ids = {}
     for service in SERVICES:
-        container_ids[service] = get_container_id(service, namespace)
-    return container_ids
+        image_ids[service] = get_container_id(service, namespace)
+    return image_ids
 
 
 def read_banned_list(file_path: Path) -> List[str]:
@@ -182,7 +182,7 @@ def write_metadata(
     output_path: Path,
     benchmark_config: Dict[str, Any],
     start_time: datetime,
-    container_ids: Dict[str, Optional[str]],
+    image_ids: Dict[str, Optional[str]],
     results: List[Dict[str, Any]],
 ):
     end_time_dt = datetime.now()
@@ -191,7 +191,7 @@ def write_metadata(
         "start_time": start_time.isoformat(),
         "end_time": end_time_dt.isoformat(),
         "duration_seconds": (end_time_dt - start_time).total_seconds(),
-        "container_ids": container_ids,
+        "image_ids": image_ids,
         "iterations": results,
         "total_iterations": len(results),
     }
@@ -320,19 +320,17 @@ def main(
         iteration = 0
         current_size = start_size
         results = []
-        container_ids = get_all_container_ids(NAMESPACE)
+        image_ids = get_all_container_ids(NAMESPACE)
 
-        print(f"Container IDs at start:")
-        for service, cid in container_ids.items():
-            print(f"  {service}: {cid or 'N/A'}")
+        print(f"Image IDs at start:")
+        for service, img_id in image_ids.items():
+            print(f"  {service}: {img_id or 'N/A'}")
         print()
 
         time_checker = TimeLimitChecker(end_time)
         time_checker.start()
 
-        write_metadata(
-            output_path, benchmark_config, start_time, container_ids, results
-        )
+        write_metadata(output_path, benchmark_config, start_time, image_ids, results)
 
         while True:
             if total_cases is not None and iteration >= total_cases:
@@ -376,7 +374,7 @@ def main(
                         output_path,
                         benchmark_config,
                         start_time,
-                        container_ids,
+                        image_ids,
                         results,
                     )
                     break
@@ -402,7 +400,7 @@ def main(
                 }
                 results.append(result)
                 write_metadata(
-                    output_path, benchmark_config, start_time, container_ids, results
+                    output_path, benchmark_config, start_time, image_ids, results
                 )
 
                 print(f"  ✓ Completed in {call_duration:.2f}s")
@@ -424,7 +422,7 @@ def main(
                 }
                 results.append(result)
                 write_metadata(
-                    output_path, benchmark_config, start_time, container_ids, results
+                    output_path, benchmark_config, start_time, image_ids, results
                 )
 
             iteration += 1
@@ -437,9 +435,7 @@ def main(
                 print()
 
         time_checker.stop()
-        write_metadata(
-            output_path, benchmark_config, start_time, container_ids, results
-        )
+        write_metadata(output_path, benchmark_config, start_time, image_ids, results)
 
         print("=== Benchmark Complete ===")
         print(f"Total iterations: {len(results)}")
