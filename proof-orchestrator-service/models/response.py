@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 class HealthResponse(BaseModel):
@@ -16,3 +16,4 @@ class ProofGenerationResponse(BaseModel):
     root_hash: str
     composite_hash: str
     warning: Optional[str] = None
+    proving_service_metrics: Optional[Dict[str, Any]] = None

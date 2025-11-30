@@ -387,6 +387,8 @@ def main(
                 with open(proof_file, "w") as f:
                     json.dump(response, f, indent=2)
 
+                proving_service_metrics = response.get("proving_service_metrics")
+
                 result = {
                     "iteration": iteration,
                     "banned_list_size": current_size,
@@ -397,7 +399,16 @@ def main(
                     "compliance_status": response.get("compliance_status"),
                     "root_hash": response.get("root_hash"),
                     "warning": response.get("warning"),
+                    "proving_service_metrics": proving_service_metrics,
                 }
+
+                if proving_service_metrics:
+                    print(
+                        f"  Proving metrics: gen={proving_service_metrics.get('generation_duration_ms', 'N/A')}ms, "
+                        f"proof_size={proving_service_metrics.get('proof_size_bytes', 'N/A')}B, "
+                        f"segments={proving_service_metrics.get('segments_count', 'N/A')}, "
+                        f"cycles={proving_service_metrics.get('total_cycles', 'N/A')}"
+                    )
                 results.append(result)
                 write_metadata(
                     output_path, benchmark_config, start_time, image_ids, results

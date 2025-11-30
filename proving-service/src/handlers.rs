@@ -149,6 +149,7 @@ pub async fn prove_merkle_compact(
         hex::encode(output.banned_list_hash)
     );
 
+    let verify_start = Instant::now();
     receipt
         .verify(SBOM_VALIDATOR_ID)
         .map_err(|e| {
@@ -156,6 +157,7 @@ pub async fn prove_merkle_compact(
             tracing::error!("{}", err_msg);
             actix_web::error::ErrorInternalServerError(err_msg)
         })?;
+    let verification_duration = verify_start.elapsed();
 
     tracing::info!("Receipt verification successful");
 
@@ -172,11 +174,24 @@ pub async fn prove_merkle_compact(
     let generation_duration = prove_start.elapsed();
     let total_duration = start_time.elapsed();
 
+    let journal_size = receipt.journal.bytes.len();
+    let proof_size = receipt_bytes.len();
+    let segments_count = receipt.segments.len();
+    
+    let total_cycles: u64 = receipt.segments.iter()
+        .flat_map(|segment| segment.segments.iter())
+        .map(|s| s.insn_cycles as u64)
+        .sum();
+
     tracing::info!(
-        "Proof generation completed: generation_time={:.2}s, total_request_time={:.2}s, receipt_size={} bytes",
+        "Proof generation completed: generation_time={:.2}s, verification_time={:.2}s, total_request_time={:.2}s, receipt_size={} bytes, journal_size={} bytes, segments={}, cycles={}",
         generation_duration.as_secs_f64(),
+        verification_duration.as_secs_f64(),
         total_duration.as_secs_f64(),
-        receipt_bytes.len()
+        proof_size,
+        journal_size,
+        segments_count,
+        total_cycles
     );
 
     let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
@@ -241,6 +256,14 @@ pub async fn prove_merkle_compact(
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
         "proof": proof_base64,
         "generation_duration_ms": generation_duration.as_millis(),
+        "verification_duration_ms": verification_duration.as_millis(),
+        "total_request_duration_ms": total_duration.as_millis(),
+        "proof_size_bytes": proof_size,
+        "journal_size_bytes": journal_size,
+        "segments_count": segments_count,
+        "total_cycles": total_cycles,
+        "merkle_proofs_count": req.merkle_proofs.len(),
+        "input_data_size_bytes": proofs_json.len(),
     });
 
     tracing::info!("Request completed successfully. Returning proof response");

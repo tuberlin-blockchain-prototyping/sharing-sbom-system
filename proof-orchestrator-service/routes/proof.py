@@ -24,6 +24,7 @@ async def generate_proof(request: ProofGenerationRequest):
             root_hash=result["root_hash"],
             composite_hash=result["composite_hash"],
             warning=result.get("warning"),
+            proving_service_metrics=result.get("proving_service_metrics"),
         )
     except ValueError as e:
         logger.error(f"Validation error: {e}")
