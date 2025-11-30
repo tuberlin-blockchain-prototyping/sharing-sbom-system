@@ -1,2 +1,2 @@
-kg:maven/org.apache.commons/commons-lang3@3.12.0
-kg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.0
+pkg:maven/org.apache.commons/commons-lang3@3.12.0
+pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.0
