@@ -6,7 +6,6 @@ pub struct VerifyProofRequest {
     pub root_hash: String,
     pub banned_list_hash: String,
     pub compliant: bool,
-    pub verified_count: usize,
     pub image_id: Vec<String>,
     pub proof: String,
     pub generation_duration_ms: Option<u64>,
@@ -43,7 +42,6 @@ pub struct MerklePublicOutputs {
     pub root_hash: [u8; 32],
     pub banned_list_hash: [u8; 32],
     pub compliant: bool,
-    pub verified_count: usize,
 }
 
 #[derive(Serialize, Debug)]
@@ -54,7 +52,6 @@ pub struct VerifyProofResponse {
     pub root_hash: String,
     pub banned_list_hash: String,
     pub compliant: bool,
-    pub verified_count: usize,
     pub image_id: Vec<String>,
     pub generation_duration_ms: Option<u64>,
 }

@@ -2,7 +2,7 @@ use risc0_zkvm::guest::env;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use sbom_common::{hash_value, hash_pair, hex_to_bytes32, bitmap_bit, path_bit, DEFAULTS};
+use sbom_common::{DEFAULTS, bitmap_bit, hash_pair, hash_value, hex_to_bytes32, path_bit};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct CompactMerkleProof {
@@ -24,7 +24,6 @@ struct MerklePublicOutputs {
     root_hash: [u8; 32],
     banned_list_hash: [u8; 32],
     compliant: bool,
-    verified_count: usize,
 }
 
 fn main() {
@@ -37,7 +36,12 @@ fn main() {
         Err(_) => {
             let banned_list: Vec<String> = vec![];
             let banned_list_hash = compute_banned_list_hash(&banned_list);
-            commit_result(&public_inputs.root_hash, &banned_list_hash, false, 0, timestamp);
+            commit_result(
+                &public_inputs.root_hash,
+                &banned_list_hash,
+                false,
+                timestamp,
+            );
             return;
         }
     };
@@ -45,8 +49,13 @@ fn main() {
     let banned_list: Vec<String> = proofs.iter().map(|p| p.purl.clone()).collect();
     let banned_list_hash = compute_banned_list_hash(&banned_list);
 
-    let (compliant, verified_count) = validate_proofs(&proofs, &public_inputs.root_hash);
-    commit_result(&public_inputs.root_hash, &banned_list_hash, compliant, verified_count, timestamp);
+    let compliant = validate_proofs(&proofs, &public_inputs.root_hash);
+    commit_result(
+        &public_inputs.root_hash,
+        &banned_list_hash,
+        compliant,
+        timestamp,
+    );
 }
 
 fn compute_banned_list_hash(banned_list: &[String]) -> [u8; 32] {
@@ -56,22 +65,20 @@ fn compute_banned_list_hash(banned_list: &[String]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-fn validate_proofs(proofs: &[CompactMerkleProof], root_hash: &[u8; 32]) -> (bool, usize) {
-    let mut verified_count = 0;
-
+fn validate_proofs(proofs: &[CompactMerkleProof], root_hash: &[u8; 32]) -> bool {
     for proof in proofs {
         if proof.value != "0" {
-            return (false, verified_count);
+            return false;
         }
 
         let bitmap = match hex_to_bytes32(&proof.bitmap) {
             Ok(b) => b,
-            Err(_) => return (false, verified_count),
+            Err(_) => return false,
         };
 
         let leaf_index = match hex_to_bytes32(&proof.leaf_index) {
             Ok(li) => li,
-            Err(_) => return (false, verified_count),
+            Err(_) => return false,
         };
 
         let mut current = hash_value(&proof.value);
@@ -82,9 +89,9 @@ fn validate_proofs(proofs: &[CompactMerkleProof], root_hash: &[u8; 32]) -> (bool
                 match siblings_iter.next() {
                     Some(hex) => match hex_to_bytes32(hex) {
                         Ok(h) => h,
-                        Err(_) => return (false, verified_count),
+                        Err(_) => return false,
                     },
-                    None => return (false, verified_count),
+                    None => return false,
                 }
             } else {
                 DEFAULTS[d]
@@ -99,26 +106,22 @@ fn validate_proofs(proofs: &[CompactMerkleProof], root_hash: &[u8; 32]) -> (bool
         }
 
         if current != *root_hash {
-            return (false, verified_count);
+            return false;
         }
-
-        verified_count += 1;
     }
 
-    (true, verified_count)
+    true
 }
 
 fn commit_result(
     root_hash: &[u8; 32],
     banned_list_hash: &[u8; 32],
     compliant: bool,
-    verified_count: usize,
     timestamp: u64,
 ) {
     env::commit(&MerklePublicOutputs {
         root_hash: *root_hash,
         banned_list_hash: *banned_list_hash,
-        verified_count,
         compliant,
         timestamp,
     });

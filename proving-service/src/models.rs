@@ -27,5 +27,4 @@ pub struct MerklePublicOutputs {
     pub root_hash: [u8; 32],
     pub banned_list_hash: [u8; 32],
     pub compliant: bool,
-    pub verified_count: usize,
 }

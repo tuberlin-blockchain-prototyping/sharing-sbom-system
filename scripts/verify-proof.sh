@@ -27,7 +27,7 @@ echo "Proof: $PROOF_FILE"
 echo ""
 
 echo "Step 1: Validate proof structure..."
-REQUIRED_FIELDS=("proof" "image_id" "root_hash" "banned_list_hash" "compliant" "verified_count" "timestamp")
+REQUIRED_FIELDS=("proof" "image_id" "root_hash" "banned_list_hash" "compliant" "timestamp")
 for field in "${REQUIRED_FIELDS[@]}"; do
     jq -e "has(\"$field\")" "$PROOF_FILE" > /dev/null 2>&1 || { echo "ERROR: Missing field: $field"; exit 1; }
 done
@@ -59,7 +59,7 @@ VERIFIED=$(echo "$RESPONSE" | jq -r '.proof_verified // false')
 
 echo "✓ Verified!"
 echo ""
-echo "$RESPONSE" | jq '{root_hash, banned_list_hash, compliant, verified_count}'
+echo "$RESPONSE" | jq '{root_hash, banned_list_hash, compliant}'
 
 kill $VERIFIER_PID 2>/dev/null || true
 trap - EXIT

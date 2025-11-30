@@ -54,12 +54,6 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
         )).into());
     }
 
-    if req.verified_count != outputs.verified_count {
-        return Err(Error::VerificationFailed(format!(
-            "Verified count mismatch: request has {}, proof contains {}",
-            req.verified_count, outputs.verified_count
-        )).into());
-    }
 
     if req.timestamp != outputs.timestamp {
         return Err(Error::VerificationFailed(format!(
@@ -69,9 +63,8 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
     }
 
     tracing::info!(
-        "Proof verified: compliant={}, verified_count={}",
-        outputs.compliant,
-        outputs.verified_count
+        "Proof verified: compliant={}",
+        outputs.compliant
     );
 
     let response = VerifyProofResponse {
@@ -79,7 +72,6 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
         root_hash: decoded_root_hash,
         banned_list_hash: decoded_banned_hash,
         compliant: outputs.compliant,
-        verified_count: outputs.verified_count,
         image_id: req.image_id.clone(),
         timestamp: outputs.timestamp,
         generation_duration_ms: req.generation_duration_ms,
