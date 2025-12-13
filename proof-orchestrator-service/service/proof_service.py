@@ -25,7 +25,8 @@ def _normalize_hash(hash_str: str) -> str:
 
 def compute_banned_list_hash(banned_list: list) -> str:
     """Compute banned_list_hash from banned_list (matches Rust implementation)."""
-    banned_list_json = json.dumps(banned_list)
+    # Use compact JSON format without spaces (matching serde_json::to_string in Rust)
+    banned_list_json = json.dumps(banned_list, separators=(",", ":"))
     banned_list_bytes = banned_list_json.encode("utf-8")
     banned_list_hash = hashlib.sha256(banned_list_bytes).hexdigest()
     return banned_list_hash
@@ -56,7 +57,8 @@ class ProofService:
         logger.info(f"Computed banned_list_hash={banned_list_hash[:16]}...")
 
         normalized_root = _normalize_hash(root_hash)
-        composite_hash = compute_composite_hash(normalized_root, banned_list_hash)
+        composite_hash = compute_composite_hash(
+            normalized_root, banned_list_hash)
         logger.info(f"Computed composite_hash={composite_hash[:16]}...")
 
         existing_proof = await self.ipfs_client.check_proof_exists(composite_hash)
@@ -84,7 +86,8 @@ class ProofService:
         if not merkle_proofs:
             raise ValueError("No merkle proofs generated")
 
-        logger.info(f"Got {len(merkle_proofs)} merkle proofs, calling proving-service")
+        logger.info(
+            f"Got {len(merkle_proofs)} merkle proofs, calling proving-service")
 
         proving_response = await self.proving_client.prove_merkle_compact(
             root=root, depth=depth, merkle_proofs=merkle_proofs
@@ -96,7 +99,8 @@ class ProofService:
         proof_root_hash = _normalize_hash(proof_root_hash_raw)
 
         if not proven_banned_list_hash:
-            raise ValueError("banned_list_hash not found in proving-service response")
+            raise ValueError(
+                "banned_list_hash not found in proving-service response")
 
         if proven_banned_list_hash.lower() != banned_list_hash.lower():
             raise ValueError(
