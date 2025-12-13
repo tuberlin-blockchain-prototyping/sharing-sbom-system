@@ -16,7 +16,7 @@ ARG TARGETARCH
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o merkle-proof-service .
 
-FROM alpine:latest
+FROM alpine:3.19
 
 RUN apk --no-cache add ca-certificates
 
@@ -29,4 +29,3 @@ RUN mkdir -p /app/data
 EXPOSE 8090
 
 CMD ["./merkle-proof-service"]
-
