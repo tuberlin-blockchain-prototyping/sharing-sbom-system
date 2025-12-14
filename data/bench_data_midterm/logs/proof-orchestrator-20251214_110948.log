@@ -1,0 +1,158 @@
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+2025-12-13 22:34:09,992 - httpx - INFO - HTTP Request: GET http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/health "HTTP/1.1 200 OK"
+2025-12-13 22:34:10,000 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:58128 - "GET /health HTTP/1.1" 200 OK
+2025-12-13 22:34:10,017 - service.proof_service - INFO - Starting proof generation for root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0
+2025-12-13 22:34:10,017 - service.proof_service - INFO - Computed banned_list_hash=3e45513eef975752...
+2025-12-13 22:34:10,017 - service.proof_service - INFO - Computed composite_hash=0731f2f0af58e6d3...
+2025-12-13 22:34:10,017 - service.ipfs_client - INFO - Checking if proof exists in IPFS for composite_hash=0731f2f0af58e6d3...
+2025-12-13 22:34:10,027 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/retrieve/0731f2f0af58e6d359bb262587b470464984a5b7fafb44e5b5520f6de153f6e0 "HTTP/1.1 404 NOT FOUND"
+2025-12-13 22:34:10,028 - service.ipfs_client - INFO - Proof not found in IPFS for composite_hash=0731f2f0af58e6d3...
+2025-12-13 22:34:10,028 - service.merkle_client - INFO - Calling merkle-proof-service: http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch
+2025-12-13 22:34:11,276 - httpx - INFO - HTTP Request: POST http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch "HTTP/1.1 200 OK"
+2025-12-13 22:34:11,276 - service.merkle_client - INFO - Received proof response from merkle-proof-service
+2025-12-13 22:34:11,276 - service.proof_service - INFO - Got 2 merkle proofs, calling proving-service
+2025-12-13 22:34:11,276 - service.proving_client - INFO - Calling proving-service: http://host.docker.internal:8081/prove-merkle-compact
+2025-12-13 22:37:53,669 - httpx - INFO - HTTP Request: POST http://host.docker.internal:8081/prove-merkle-compact "HTTP/1.1 200 OK"
+2025-12-13 22:37:53,681 - service.proving_client - INFO - Received proof response from proving-service
+2025-12-13 22:37:53,681 - service.proof_service - INFO - Extracted: banned_list_hash=3e45513eef975752..., compliant=True
+2025-12-13 22:37:53,681 - service.proof_service - INFO - Verified composite_hash=0731f2f0af58e6d3...
+2025-12-13 22:37:53,689 - service.ipfs_client - INFO - Storing proof on IPFS via ipfs-service: http://ipfs-service.sharing-sbom-system.svc.cluster.local:80/store
+2025-12-13 22:37:53,725 - httpx - INFO - HTTP Request: POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store "HTTP/1.1 201 CREATED"
+2025-12-13 22:37:53,725 - service.ipfs_client - INFO - Proof stored on IPFS with CID: Qmf8sEnbRcGpYUyBFoTez2ZRKFr46miozZa1EZW5hTGSEL
+2025-12-13 22:37:53,952 - service.blockchain_client - INFO - Found Hardhat pod: hardhat-node-7dd7c4d85-jfcwv
+2025-12-13 22:37:53,952 - service.blockchain_client - INFO - Executing blockchain script with root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0, compliant=True
+2025-12-13 22:37:54,645 - service.blockchain_client - INFO - Transaction successful: 0x2dbe6ca84f8e3bdb14b419fc1b104d102c4517dd9f70e4f4fe64042e671bbd28
+2025-12-13 22:37:54,645 - service.proof_service - INFO - Proof generation completed: tx_hash=0x2dbe6ca84f8e3bdb14b419fc1b104d102c4517dd9f70e4f4fe64042e671bbd28
+INFO:     127.0.0.1:58132 - "POST /generate-proof HTTP/1.1" 200 OK
+2025-12-13 22:40:04,886 - httpx - INFO - HTTP Request: GET http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/health "HTTP/1.1 200 OK"
+2025-12-13 22:40:04,894 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:37120 - "GET /health HTTP/1.1" 200 OK
+2025-12-13 22:40:04,909 - service.proof_service - INFO - Starting proof generation for root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0
+2025-12-13 22:40:04,909 - service.proof_service - INFO - Computed banned_list_hash=7299148951634a8d...
+2025-12-13 22:40:04,909 - service.proof_service - INFO - Computed composite_hash=2054834a3aead152...
+2025-12-13 22:40:04,909 - service.ipfs_client - INFO - Checking if proof exists in IPFS for composite_hash=2054834a3aead152...
+2025-12-13 22:40:04,917 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/retrieve/2054834a3aead152e84b240c33cd4ab1fdc224b178e57fa61b0bf2c6b13ed6be "HTTP/1.1 404 NOT FOUND"
+2025-12-13 22:40:04,917 - service.ipfs_client - INFO - Proof not found in IPFS for composite_hash=2054834a3aead152...
+2025-12-13 22:40:04,917 - service.merkle_client - INFO - Calling merkle-proof-service: http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch
+2025-12-13 22:40:06,241 - httpx - INFO - HTTP Request: POST http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch "HTTP/1.1 200 OK"
+2025-12-13 22:40:06,242 - service.merkle_client - INFO - Received proof response from merkle-proof-service
+2025-12-13 22:40:06,242 - service.proof_service - INFO - Got 10 merkle proofs, calling proving-service
+2025-12-13 22:40:06,242 - service.proving_client - INFO - Calling proving-service: http://host.docker.internal:8081/prove-merkle-compact
+2025-12-13 22:57:56,103 - httpx - INFO - HTTP Request: POST http://host.docker.internal:8081/prove-merkle-compact "HTTP/1.1 200 OK"
+2025-12-13 22:57:56,124 - service.proving_client - INFO - Received proof response from proving-service
+2025-12-13 22:57:56,124 - service.proof_service - INFO - Extracted: banned_list_hash=7299148951634a8d..., compliant=True
+2025-12-13 22:57:56,124 - service.proof_service - INFO - Verified composite_hash=2054834a3aead152...
+2025-12-13 22:57:56,139 - service.ipfs_client - INFO - Storing proof on IPFS via ipfs-service: http://ipfs-service.sharing-sbom-system.svc.cluster.local:80/store
+2025-12-13 22:57:56,200 - httpx - INFO - HTTP Request: POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store "HTTP/1.1 201 CREATED"
+2025-12-13 22:57:56,200 - service.ipfs_client - INFO - Proof stored on IPFS with CID: QmW8fmp5G4p6K8B8ocPgi65uH7AWBPKsMTUe2rdnq5Buib
+2025-12-13 22:57:56,429 - service.blockchain_client - INFO - Found Hardhat pod: hardhat-node-7dd7c4d85-jfcwv
+2025-12-13 22:57:56,429 - service.blockchain_client - INFO - Executing blockchain script with root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0, compliant=True
+2025-12-13 22:57:57,160 - service.blockchain_client - INFO - Transaction successful: 0x601113321c99dfc87ba944b6a9ea109d66d28cb3bec5d4183d9c8afbd7068f3d
+2025-12-13 22:57:57,160 - service.proof_service - INFO - Proof generation completed: tx_hash=0x601113321c99dfc87ba944b6a9ea109d66d28cb3bec5d4183d9c8afbd7068f3d
+INFO:     127.0.0.1:37128 - "POST /generate-proof HTTP/1.1" 200 OK
+2025-12-13 23:01:04,857 - httpx - INFO - HTTP Request: GET http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/health "HTTP/1.1 200 OK"
+2025-12-13 23:01:04,864 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:36640 - "GET /health HTTP/1.1" 200 OK
+2025-12-13 23:01:04,878 - service.proof_service - INFO - Starting proof generation for root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0
+2025-12-13 23:01:04,878 - service.proof_service - INFO - Computed banned_list_hash=a16eb6bdfe5f997b...
+2025-12-13 23:01:04,878 - service.proof_service - INFO - Computed composite_hash=13e223da6c9925d1...
+2025-12-13 23:01:04,878 - service.ipfs_client - INFO - Checking if proof exists in IPFS for composite_hash=13e223da6c9925d1...
+2025-12-13 23:01:04,885 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/retrieve/13e223da6c9925d18664d57b359ff9428387bbc97a04888a13ad7cd4a1cf448a "HTTP/1.1 404 NOT FOUND"
+2025-12-13 23:01:04,885 - service.ipfs_client - INFO - Proof not found in IPFS for composite_hash=13e223da6c9925d1...
+2025-12-13 23:01:04,885 - service.merkle_client - INFO - Calling merkle-proof-service: http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch
+2025-12-13 23:01:06,492 - httpx - INFO - HTTP Request: POST http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch "HTTP/1.1 200 OK"
+2025-12-13 23:01:06,492 - service.merkle_client - INFO - Received proof response from merkle-proof-service
+2025-12-13 23:01:06,492 - service.proof_service - INFO - Got 20 merkle proofs, calling proving-service
+2025-12-13 23:01:06,492 - service.proving_client - INFO - Calling proving-service: http://host.docker.internal:8081/prove-merkle-compact
+2025-12-13 23:36:55,097 - httpx - INFO - HTTP Request: POST http://host.docker.internal:8081/prove-merkle-compact "HTTP/1.1 200 OK"
+2025-12-13 23:36:55,136 - service.proving_client - INFO - Received proof response from proving-service
+2025-12-13 23:36:55,136 - service.proof_service - INFO - Extracted: banned_list_hash=a16eb6bdfe5f997b..., compliant=True
+2025-12-13 23:36:55,136 - service.proof_service - INFO - Verified composite_hash=13e223da6c9925d1...
+2025-12-13 23:36:55,166 - service.ipfs_client - INFO - Storing proof on IPFS via ipfs-service: http://ipfs-service.sharing-sbom-system.svc.cluster.local:80/store
+2025-12-13 23:36:55,268 - httpx - INFO - HTTP Request: POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store "HTTP/1.1 201 CREATED"
+2025-12-13 23:36:55,268 - service.ipfs_client - INFO - Proof stored on IPFS with CID: QmcYieXYjU8txB5fPDQE65BkyCWAgPE7JJPfdVAeuRbigF
+2025-12-13 23:36:55,500 - service.blockchain_client - INFO - Found Hardhat pod: hardhat-node-7dd7c4d85-jfcwv
+2025-12-13 23:36:55,500 - service.blockchain_client - INFO - Executing blockchain script with root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0, compliant=True
+2025-12-13 23:36:56,167 - service.blockchain_client - INFO - Transaction successful: 0x4344601516af1b5ef7b1a1cf2170745c2f87651b3a79414b911efc9ba95e0ad6
+2025-12-13 23:36:56,167 - service.proof_service - INFO - Proof generation completed: tx_hash=0x4344601516af1b5ef7b1a1cf2170745c2f87651b3a79414b911efc9ba95e0ad6
+2025-12-13 23:38:25,350 - httpx - INFO - HTTP Request: GET http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/health "HTTP/1.1 200 OK"
+2025-12-13 23:38:25,359 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:33532 - "GET /health HTTP/1.1" 200 OK
+2025-12-13 23:38:25,377 - service.proof_service - INFO - Starting proof generation for root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0
+2025-12-13 23:38:25,377 - service.proof_service - INFO - Computed banned_list_hash=736bc81f536e3a36...
+2025-12-13 23:38:25,377 - service.proof_service - INFO - Computed composite_hash=484d959a034a457a...
+2025-12-13 23:38:25,377 - service.ipfs_client - INFO - Checking if proof exists in IPFS for composite_hash=484d959a034a457a...
+2025-12-13 23:38:25,385 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/retrieve/484d959a034a457ab0d6777a479b50f7d85dada5d790d5a7847df363ccb334c9 "HTTP/1.1 404 NOT FOUND"
+2025-12-13 23:38:25,386 - service.ipfs_client - INFO - Proof not found in IPFS for composite_hash=484d959a034a457a...
+2025-12-13 23:38:25,386 - service.merkle_client - INFO - Calling merkle-proof-service: http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch
+2025-12-13 23:38:26,888 - httpx - INFO - HTTP Request: POST http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch "HTTP/1.1 200 OK"
+2025-12-13 23:38:26,888 - service.merkle_client - INFO - Received proof response from merkle-proof-service
+2025-12-13 23:38:26,888 - service.proof_service - INFO - Got 50 merkle proofs, calling proving-service
+2025-12-13 23:38:26,888 - service.proving_client - INFO - Calling proving-service: http://host.docker.internal:8081/prove-merkle-compact
+2025-12-14 01:07:05,127 - httpx - INFO - HTTP Request: POST http://host.docker.internal:8081/prove-merkle-compact "HTTP/1.1 200 OK"
+2025-12-14 01:07:05,215 - service.proving_client - INFO - Received proof response from proving-service
+2025-12-14 01:07:05,215 - service.proof_service - INFO - Extracted: banned_list_hash=736bc81f536e3a36..., compliant=True
+2025-12-14 01:07:05,216 - service.proof_service - INFO - Verified composite_hash=484d959a034a457a...
+2025-12-14 01:07:05,307 - service.ipfs_client - INFO - Storing proof on IPFS via ipfs-service: http://ipfs-service.sharing-sbom-system.svc.cluster.local:80/store
+2025-12-14 01:07:05,564 - httpx - INFO - HTTP Request: POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store "HTTP/1.1 201 CREATED"
+2025-12-14 01:07:05,564 - service.ipfs_client - INFO - Proof stored on IPFS with CID: QmaUABHVb57xTBy4zMmdc4kLUnD7xmH2uywGacsJ2q2Nvi
+2025-12-14 01:07:05,783 - service.blockchain_client - INFO - Found Hardhat pod: hardhat-node-7dd7c4d85-jfcwv
+2025-12-14 01:07:05,783 - service.blockchain_client - INFO - Executing blockchain script with root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0, compliant=True
+2025-12-14 01:07:06,497 - service.blockchain_client - INFO - Transaction successful: 0x1961618e1f1fe91726a5574e0c3e376088c15b7a4f7b9191e693b52b2b693b9c
+2025-12-14 01:07:06,497 - service.proof_service - INFO - Proof generation completed: tx_hash=0x1961618e1f1fe91726a5574e0c3e376088c15b7a4f7b9191e693b52b2b693b9c
+2025-12-14 01:07:43,384 - httpx - INFO - HTTP Request: GET http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/health "HTTP/1.1 200 OK"
+2025-12-14 01:07:43,392 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:36998 - "GET /health HTTP/1.1" 200 OK
+2025-12-14 01:07:43,413 - service.proof_service - INFO - Starting proof generation for root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0
+2025-12-14 01:07:43,413 - service.proof_service - INFO - Computed banned_list_hash=d34b7722a1e54e37...
+2025-12-14 01:07:43,413 - service.proof_service - INFO - Computed composite_hash=1875a0b9b688eab2...
+2025-12-14 01:07:43,413 - service.ipfs_client - INFO - Checking if proof exists in IPFS for composite_hash=1875a0b9b688eab2...
+2025-12-14 01:07:43,421 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/retrieve/1875a0b9b688eab2dfa9bbb64d48e2e263288de136f251723b4d17575ac3a93d "HTTP/1.1 404 NOT FOUND"
+2025-12-14 01:07:43,422 - service.ipfs_client - INFO - Proof not found in IPFS for composite_hash=1875a0b9b688eab2...
+2025-12-14 01:07:43,422 - service.merkle_client - INFO - Calling merkle-proof-service: http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch
+2025-12-14 01:07:44,829 - httpx - INFO - HTTP Request: POST http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch "HTTP/1.1 200 OK"
+2025-12-14 01:07:44,829 - service.merkle_client - INFO - Received proof response from merkle-proof-service
+2025-12-14 01:07:44,829 - service.proof_service - INFO - Got 100 merkle proofs, calling proving-service
+2025-12-14 01:07:44,829 - service.proving_client - INFO - Calling proving-service: http://host.docker.internal:8081/prove-merkle-compact
+2025-12-14 04:04:05,821 - httpx - INFO - HTTP Request: POST http://host.docker.internal:8081/prove-merkle-compact "HTTP/1.1 200 OK"
+2025-12-14 04:04:06,006 - service.proving_client - INFO - Received proof response from proving-service
+2025-12-14 04:04:06,007 - service.proof_service - INFO - Extracted: banned_list_hash=d34b7722a1e54e37..., compliant=True
+2025-12-14 04:04:06,007 - service.proof_service - INFO - Verified composite_hash=1875a0b9b688eab2...
+2025-12-14 04:04:06,177 - service.ipfs_client - INFO - Storing proof on IPFS via ipfs-service: http://ipfs-service.sharing-sbom-system.svc.cluster.local:80/store
+2025-12-14 04:04:06,617 - httpx - INFO - HTTP Request: POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store "HTTP/1.1 201 CREATED"
+2025-12-14 04:04:06,617 - service.ipfs_client - INFO - Proof stored on IPFS with CID: QmTGJhehVEdr5RNtSvm5aDE81iu25XmVVwtUgB9nPomHpq
+2025-12-14 04:04:06,845 - service.blockchain_client - INFO - Found Hardhat pod: hardhat-node-7dd7c4d85-jfcwv
+2025-12-14 04:04:06,845 - service.blockchain_client - INFO - Executing blockchain script with root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0, compliant=True
+2025-12-14 04:04:07,574 - service.blockchain_client - INFO - Transaction successful: 0x2b8675582c988bbf68ad1185472b2169d06c97a06a38ca356e4b6a33e048832b
+2025-12-14 04:04:07,574 - service.proof_service - INFO - Proof generation completed: tx_hash=0x2b8675582c988bbf68ad1185472b2169d06c97a06a38ca356e4b6a33e048832b
+INFO:     127.0.0.1:37014 - "POST /generate-proof HTTP/1.1" 200 OK
+2025-12-14 04:13:10,566 - httpx - INFO - HTTP Request: GET http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/health "HTTP/1.1 200 OK"
+2025-12-14 04:13:10,574 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/health "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:33010 - "GET /health HTTP/1.1" 200 OK
+2025-12-14 04:13:10,590 - service.proof_service - INFO - Starting proof generation for root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0
+2025-12-14 04:13:10,590 - service.proof_service - INFO - Computed banned_list_hash=0331f07c6f2ed511...
+2025-12-14 04:13:10,590 - service.proof_service - INFO - Computed composite_hash=37515864d192c3d9...
+2025-12-14 04:13:10,590 - service.ipfs_client - INFO - Checking if proof exists in IPFS for composite_hash=37515864d192c3d9...
+2025-12-14 04:13:10,598 - httpx - INFO - HTTP Request: GET http://ipfs-service.sharing-sbom-system.svc.cluster.local/retrieve/37515864d192c3d952351a4cd24ff4a7aef6b8102ebd68d3cf332d5a4c0e7145 "HTTP/1.1 404 NOT FOUND"
+2025-12-14 04:13:10,598 - service.ipfs_client - INFO - Proof not found in IPFS for composite_hash=37515864d192c3d9...
+2025-12-14 04:13:10,598 - service.merkle_client - INFO - Calling merkle-proof-service: http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch
+2025-12-14 04:13:11,922 - httpx - INFO - HTTP Request: POST http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090/prove-batch "HTTP/1.1 200 OK"
+2025-12-14 04:13:11,924 - service.merkle_client - INFO - Received proof response from merkle-proof-service
+2025-12-14 04:13:11,925 - service.proof_service - INFO - Got 200 merkle proofs, calling proving-service
+2025-12-14 04:13:11,925 - service.proving_client - INFO - Calling proving-service: http://host.docker.internal:8081/prove-merkle-compact
+2025-12-14 10:05:13,504 - httpx - INFO - HTTP Request: POST http://host.docker.internal:8081/prove-merkle-compact "HTTP/1.1 200 OK"
+2025-12-14 10:05:14,149 - service.proving_client - INFO - Received proof response from proving-service
+2025-12-14 10:05:14,150 - service.proof_service - INFO - Extracted: banned_list_hash=0331f07c6f2ed511..., compliant=True
+2025-12-14 10:05:14,150 - service.proof_service - INFO - Verified composite_hash=37515864d192c3d9...
+2025-12-14 10:05:14,493 - service.ipfs_client - INFO - Storing proof on IPFS via ipfs-service: http://ipfs-service.sharing-sbom-system.svc.cluster.local:80/store
+2025-12-14 10:05:15,918 - httpx - INFO - HTTP Request: POST http://ipfs-service.sharing-sbom-system.svc.cluster.local/store "HTTP/1.1 201 CREATED"
+2025-12-14 10:05:15,918 - service.ipfs_client - INFO - Proof stored on IPFS with CID: QmVmyN1wHsFWBcaBjkQ2oXmDZy4nRcv8Qve1xuduzRm3Tp
+2025-12-14 10:05:16,133 - service.blockchain_client - INFO - Found Hardhat pod: hardhat-node-7dd7c4d85-jfcwv
+2025-12-14 10:05:16,133 - service.blockchain_client - INFO - Executing blockchain script with root_hash=3344d7ec114a5fa022b996733842f1ee6b7544782aad6499955e3062a33cb0f0, compliant=True
+2025-12-14 10:05:16,816 - service.blockchain_client - INFO - Transaction successful: 0x6f8c0e2d393f6dc75fb7713ae7d0d4c72690fda5d98b6d90b2399dfe92103447
+2025-12-14 10:05:16,816 - service.proof_service - INFO - Proof generation completed: tx_hash=0x6f8c0e2d393f6dc75fb7713ae7d0d4c72690fda5d98b6d90b2399dfe92103447
+INFO:     127.0.0.1:33016 - "POST /generate-proof HTTP/1.1" 200 OK

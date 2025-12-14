@@ -41,7 +41,7 @@ done
 RESPONSE=$(curl -X POST "http://localhost:8080/generate-proof" \
     -H "Content-Type: application/json" \
     -d "$(jq -n --arg h "$ROOT_HASH" --argjson l "$BANNED_ARRAY" '{root_hash: $h, banned_list: $l}')" \
-    --max-time 1800 \
+    --max-time 43200 \
     --silent)
 
 IPFS_CID=$(echo "$RESPONSE" | jq -r '.ipfs_cid // empty')

@@ -29,7 +29,7 @@ spec:
         - name: MERKLE_PROOF_SERVICE_URL
           value: "http://merkle-proof-service.sharing-sbom-system.svc.cluster.local:8090"
         - name: PROVING_SERVICE_URL
-          value: "http://proving-service.sharing-sbom-system.svc.cluster.local:80"
+          value: "http://host.docker.internal:8081"
         - name: IPFS_SERVICE_URL
           value: "http://ipfs-service.sharing-sbom-system.svc.cluster.local:80"
         - name: BLOCKCHAIN_CONTRACT_ADDRESS
@@ -38,4 +38,5 @@ spec:
           value: "blockchain"
         - name: BLOCKCHAIN_SCRIPT_PATH
           value: "/workspace/store_merkle_proof.js"
-
+        - name: PROVING_TIMEOUT
+          value: "43200"

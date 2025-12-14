@@ -154,13 +154,14 @@ def call_orchestrator(
     url: str,
     root_hash: str,
     banned_list: List[str],
-    timeout: int = 1800,
+    timeout: Optional[int] = None,
     time_checker: Optional[TimeLimitChecker] = None,
 ) -> Dict[str, Any]:
     payload = {"root_hash": root_hash, "banned_list": banned_list}
 
     if time_checker and time_checker.check():
-        raise TimeoutError("Time limit reached before starting orchestrator call")
+        raise TimeoutError(
+            "Time limit reached before starting orchestrator call")
 
     with httpx.Client(timeout=timeout) as client:
         response = client.post(f"{url}/generate-proof", json=payload)
@@ -330,7 +331,8 @@ def main(
         time_checker = TimeLimitChecker(end_time)
         time_checker.start()
 
-        write_metadata(output_path, benchmark_config, start_time, image_ids, results)
+        write_metadata(output_path, benchmark_config,
+                       start_time, image_ids, results)
 
         while True:
             if total_cases is not None and iteration >= total_cases:
@@ -342,7 +344,8 @@ def main(
                 break
 
             if current_size > len(banned_list):
-                print(f"Reached end of banned list ({len(banned_list)} packages)")
+                print(
+                    f"Reached end of banned list ({len(banned_list)} packages)")
                 break
 
             if time_checker.check():
@@ -350,7 +353,8 @@ def main(
                 break
 
             test_list = banned_list[:current_size]
-            print(f"Iteration {iteration}: Testing with {current_size} packages...")
+            print(
+                f"Iteration {iteration}: Testing with {current_size} packages...")
 
             call_start = time.time()
             try:
@@ -381,13 +385,15 @@ def main(
 
                 composite_hash = response.get("composite_hash", "unknown")
                 proof_file = (
-                    output_path / f"proof_{iteration}_{composite_hash[:16]}.json"
+                    output_path /
+                    f"proof_{iteration}_{composite_hash[:16]}.json"
                 )
 
                 with open(proof_file, "w") as f:
                     json.dump(response, f, indent=2)
 
-                proving_service_metrics = response.get("proving_service_metrics")
+                proving_service_metrics = response.get(
+                    "proving_service_metrics")
 
                 result = {
                     "iteration": iteration,
@@ -446,7 +452,8 @@ def main(
                 print()
 
         time_checker.stop()
-        write_metadata(output_path, benchmark_config, start_time, image_ids, results)
+        write_metadata(output_path, benchmark_config,
+                       start_time, image_ids, results)
 
         print("=== Benchmark Complete ===")
         print(f"Total iterations: {len(results)}")
