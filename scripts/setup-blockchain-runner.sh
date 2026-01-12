@@ -4,6 +4,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "ERROR: .env file not found"
+    echo "Please create .env file from .env.example:"
+    echo "  cp .env.example .env"
+    echo "  # Then edit .env and add your GITHUB_TOKEN"
+    exit 1
+fi
+
+source "$PROJECT_ROOT/.env"
+
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    echo "ERROR: GITHUB_TOKEN not set in .env file"
+    echo "Please set GITHUB_TOKEN in .env file"
+    exit 1
+fi
+
 command -v kubectl >/dev/null 2>&1 || { echo "kubectl is required" >&2; exit 1; }
 command -v kind >/dev/null 2>&1 || { echo "kind is required" >&2; exit 1; }
 
@@ -62,23 +78,16 @@ if ! kubectl get namespace github-runner &>/dev/null; then
 fi
 
 if ! kubectl get secret github-runner-secret -n github-runner &>/dev/null; then
-    echo "GitHub runner secret not found"
-    echo ""
-    echo "Create secret:"
-    echo "  kubectl create secret generic github-runner-secret \\"
-    echo "    --from-literal=GITHUB_TOKEN='your-token' \\"
-    echo "    -n github-runner"
-    echo ""
-    echo "Get token: https://github.com/settings/tokens/new"
-    read -p "Press Enter after creating the secret..."
-    
-    if ! kubectl get secret github-runner-secret -n github-runner &>/dev/null; then
-        echo "Secret not found. Deploy manually:"
-        echo "  kubectl apply -f k8s/github-runner/configmap.yaml"
-        echo "  kubectl apply -f k8s/github-runner/runner-rbac.yaml"
-        echo "  kubectl apply -f k8s/github-runner/deployment.yaml"
-        exit 0
-    fi
+    echo "Creating GitHub runner secret from .env file..."
+    kubectl create secret generic github-runner-secret \
+      --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN" \
+      -n github-runner
+else
+    echo "GitHub runner secret already exists, updating..."
+    kubectl create secret generic github-runner-secret \
+      --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN" \
+      -n github-runner \
+      --dry-run=client -o yaml | kubectl apply -f -
 fi
 
 kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/configmap.yaml"

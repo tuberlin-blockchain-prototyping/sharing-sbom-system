@@ -38,19 +38,23 @@ This project demonstrates a complete CI/CD pipeline that:
 
 ## Quick Start
 
-### 1. Setup Kind Cluster with ArgoCD
+### 1. Configure GitHub Personal Access Token
+
+Create a `.env` file from the example template:
 
 ```bash
-./scripts/setup-kind-cluster-with-argoCD.sh
+cp .env.example .env
 ```
 
-This will:
-- Create a Kind cluster named `sharing-sbom-system`
-- Install ArgoCD
-- Deploy the ArgoCD application pointing to the `k8s/` folder
+Edit `.env` and add your GitHub Personal Access Token:
 
+```bash
+GITHUB_TOKEN=your-github-personal-access-token-here
+```
 
-### 2. Configure GitHub Runner Name
+Get a token from: https://github.com/settings/tokens/new (needs `repo` and `workflow` scopes)
+
+### 2. Configure GitHub Runner Name (Optional)
 
 Each person can customize their GitHub runner name. Edit `k8s/github-runner/configmap.yaml`:
 
@@ -62,28 +66,22 @@ data:
 
 **Important**: The `RUNNER_LABELS` must match the `runs-on` labels in your GitHub Actions workflows (e.g., `runs-on: [self-hosted, kind-cluster, blockchain]`).
 
-### 3. Setup Blockchain and GitHub Runner
+### 3. Run Setup Script
+
+Run the unified setup script:
 
 ```bash
-./scripts/setup-blockchain-runner.sh
+./scripts/setup.sh
 ```
 
 This will:
+- Create a Kind cluster named `sharing-sbom-system`
+- Install ArgoCD
+- Deploy the ArgoCD application pointing to the `k8s/` folder
 - Deploy Hardhat node to the `blockchain` namespace
 - Auto-deploy SBOMRegistry contract (address: `0x5FbDB2315678afecb367f032d93F642f64180aa3`)
-- Deploy GitHub Actions runner (will wait for secret if not present)
-
-### 4. Create GitHub Runner Secret
-
-After the namespace is created, create the GitHub Personal Access Token (PAT) secret:
-
-```bash
-kubectl create secret generic github-runner-secret \
-  --from-literal=GITHUB_TOKEN='your-github-pat-token' \
-  -n github-runner
-```
-
-Get a token from: https://github.com/settings/tokens/new (needs `repo` and `workflow` scopes)
+- Create GitHub runner secret from `.env` file
+- Deploy GitHub Actions runner
 
 
 ## CI/CD Workflow
