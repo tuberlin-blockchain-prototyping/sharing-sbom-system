@@ -237,10 +237,18 @@ jobs:
         with:
           path: sbom-system-repo
 
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ABP_GITOPS_APP_ID }}
+          private-key: ${{ secrets.ABP_GITOPS_APP_PRIVATE_KEY }}
+          owner: tuberlin-blockchain-prototyping
+
       - name: Check out GitOps repo
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           repository: tuberlin-blockchain-prototyping/sharing-sbom-system-gitops
           path: gitops-repo
 
