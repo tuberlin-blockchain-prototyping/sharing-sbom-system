@@ -59,7 +59,43 @@ ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o js
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-kubectl apply -f "$PROJECT_ROOT/argocd/application.yaml"
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "ERROR: .env file not found"
+    echo "Please create .env file from .env.example and add GITHUB_TOKEN"
+    exit 1
+fi
+
+source "$PROJECT_ROOT/.env"
+
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+    echo "ERROR: GITHUB_TOKEN not set in .env file"
+    echo "Please set GITHUB_TOKEN in .env file"
+    exit 1
+fi
+
+GITOPS_REPO="${GITOPS_REPO:-tuberlin-blockchain-prototyping/sharing-sbom-system-gitops}"
+GITOPS_BRANCH="${GITOPS_BRANCH:-main}"
+GITOPS_REPO_URL="https://${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git"
+TEMP_GITOPS_DIR=$(mktemp -d)
+
+echo "Fetching ArgoCD Applications from GitOps repo..."
+echo "  Repo: ${GITOPS_REPO}"
+echo "  Branch: ${GITOPS_BRANCH}"
+
+if command -v git >/dev/null 2>&1 && git clone --depth 1 --branch "${GITOPS_BRANCH}" "${GITOPS_REPO_URL}" "${TEMP_GITOPS_DIR}" 2>/dev/null; then
+    APPLICATIONS_FILE="${TEMP_GITOPS_DIR}/argocd/applications.yaml"
+    if [ -f "${APPLICATIONS_FILE}" ]; then
+        echo "Applying ArgoCD Applications..."
+        kubectl apply -f "${APPLICATIONS_FILE}"
+        echo "ArgoCD Applications applied successfully"
+    else
+        echo "WARNING: applications.yaml not found at argocd/applications.yaml in GitOps repo"
+        echo "Expected path: ${APPLICATIONS_FILE}"
+    fi
+    rm -rf "${TEMP_GITOPS_DIR}"
+else
+    echo "WARNING: Failed to fetch ArgoCD Applications from GitOps repo."
+fi
 
 sleep 5
 kubectl get application sharing-sbom-system -n argocd 2>/dev/null || echo "Application is being created"

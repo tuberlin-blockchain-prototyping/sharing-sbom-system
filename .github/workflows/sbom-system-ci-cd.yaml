@@ -235,27 +235,35 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
+          path: sbom-system-repo
+
+      - name: Check out GitOps repo
+        uses: actions/checkout@v4
+        with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          repository: tuberlin-blockchain-prototyping/sharing-sbom-system-gitops
+          path: gitops-repo
 
       - name: Update Kubernetes manifests
         run: |
           REPO_PATH=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_TAG="${GITHUB_SHA:0:7}"
 
-          sed -i "s|image: ghcr.io/.*/proving-service:.*|image: ghcr.io/${REPO_PATH}/proving-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/proving-service-deployment.yaml
-          sed -i "s|image: ghcr.io/.*/verifier-service:.*|image: ghcr.io/${REPO_PATH}/verifier-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/verifier-service-deployment.yaml
-          sed -i "s|image: ghcr.io/.*/ipfs-service:.*|image: ghcr.io/${REPO_PATH}/ipfs-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/ipfs-service-deployment.yaml
-          sed -i "s|image: ghcr.io/.*/proof-orchestrator-service:.*|image: ghcr.io/${REPO_PATH}/proof-orchestrator-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/proof-orchestrator-service-deployment.yaml
-          sed -i "s|image: ghcr.io/.*/merkle-proof-service:.*|image: ghcr.io/${REPO_PATH}/merkle-proof-service:${IMAGE_TAG}|g" k8s/sharing-sbom-system/merkle-proof-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/proving-service:.*|image: ghcr.io/${REPO_PATH}/proving-service:${IMAGE_TAG}|g" gitops-repo/k8s/sharing-sbom-system/proving-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/verifier-service:.*|image: ghcr.io/${REPO_PATH}/verifier-service:${IMAGE_TAG}|g" gitops-repo/k8s/sharing-sbom-system/verifier-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/ipfs-service:.*|image: ghcr.io/${REPO_PATH}/ipfs-service:${IMAGE_TAG}|g" gitops-repo/k8s/sharing-sbom-system/ipfs-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/proof-orchestrator-service:.*|image: ghcr.io/${REPO_PATH}/proof-orchestrator-service:${IMAGE_TAG}|g" gitops-repo/k8s/sharing-sbom-system/proof-orchestrator-service-deployment.yaml
+          sed -i "s|image: ghcr.io/.*/merkle-proof-service:.*|image: ghcr.io/${REPO_PATH}/merkle-proof-service:${IMAGE_TAG}|g" gitops-repo/k8s/sharing-sbom-system/merkle-proof-service-deployment.yaml
 
-      - name: Commit and push changes
+      - name: Commit and push to GitOps repo
         run: |
+          cd gitops-repo
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add k8s/sharing-sbom-system/*.yaml
 
           if ! git diff --staged --quiet; then
-            git commit -m "Update microservice images to ${GITHUB_SHA:0:7}"
+            git commit -m "Update microservice images to ${GITHUB_SHA:0:7} [from ${{ github.repository }}]"
             
             for i in {1..3}; do
               git pull --rebase origin main && git push && break || sleep 5

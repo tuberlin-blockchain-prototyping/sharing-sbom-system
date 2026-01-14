@@ -34,9 +34,30 @@ if ! kubectl cluster-info &>/dev/null; then
 fi
 
 kubectl create namespace blockchain --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f "$PROJECT_ROOT/k8s/blockchain/configmap.yaml"
-kubectl apply -f "$PROJECT_ROOT/k8s/blockchain/deployment.yaml"
-kubectl apply -f "$PROJECT_ROOT/k8s/blockchain/service.yaml"
+
+GITOPS_REPO="${GITOPS_REPO:-tuberlin-blockchain-prototyping/sharing-sbom-system-gitops}"
+GITOPS_BRANCH="${GITOPS_BRANCH:-main}"
+GITOPS_REPO_URL="https://${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git"
+TEMP_GITOPS_DIR=$(mktemp -d)
+
+echo "Fetching blockchain manifests from GitOps repo..."
+if command -v git >/dev/null 2>&1 && git clone --depth 1 --branch "${GITOPS_BRANCH}" "${GITOPS_REPO_URL}" "${TEMP_GITOPS_DIR}" 2>/dev/null; then
+    BLOCKCHAIN_DIR="${TEMP_GITOPS_DIR}/k8s/blockchain"
+    if [ -d "${BLOCKCHAIN_DIR}" ]; then
+        echo "Applying blockchain manifests from GitOps repo..."
+        kubectl apply -f "${BLOCKCHAIN_DIR}/configmap.yaml"
+        kubectl apply -f "${BLOCKCHAIN_DIR}/deployment.yaml"
+        kubectl apply -f "${BLOCKCHAIN_DIR}/service.yaml"
+    else
+        echo "ERROR: blockchain directory not found in GitOps repo"
+        echo "Expected path: ${BLOCKCHAIN_DIR}"
+        exit 1
+    fi
+    rm -rf "${TEMP_GITOPS_DIR}"
+else
+    echo "ERROR: Failed to fetch blockchain manifests from GitOps repo."
+    exit 1
+fi
 
 # Restart deployment to pick up ConfigMap changes if pod already exists
 kubectl rollout restart deployment/hardhat-node -n blockchain || true
@@ -90,9 +111,29 @@ else
       --dry-run=client -o yaml | kubectl apply -f -
 fi
 
-kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/configmap.yaml"
-kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/runner-rbac.yaml"
-kubectl apply -f "$PROJECT_ROOT/k8s/github-runner/deployment.yaml"
+GITOPS_REPO="${GITOPS_REPO:-tuberlin-blockchain-prototyping/sharing-sbom-system-gitops}"
+GITOPS_BRANCH="${GITOPS_BRANCH:-main}"
+GITOPS_REPO_URL="https://${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git"
+TEMP_GITOPS_DIR=$(mktemp -d)
+
+echo "Fetching GitHub runner manifests from GitOps repo..."
+if command -v git >/dev/null 2>&1 && git clone --depth 1 --branch "${GITOPS_BRANCH}" "${GITOPS_REPO_URL}" "${TEMP_GITOPS_DIR}" 2>/dev/null; then
+    GITHUB_RUNNER_DIR="${TEMP_GITOPS_DIR}/k8s/github-runner"
+    if [ -d "${GITHUB_RUNNER_DIR}" ]; then
+        echo "Applying GitHub runner manifests..."
+        kubectl apply -f "${GITHUB_RUNNER_DIR}/configmap.yaml"
+        kubectl apply -f "${GITHUB_RUNNER_DIR}/runner-rbac.yaml"
+        kubectl apply -f "${GITHUB_RUNNER_DIR}/deployment.yaml"
+    else
+        echo "ERROR: github-runner directory not found in GitOps repo"
+        echo "Expected path: ${GITHUB_RUNNER_DIR}"
+        exit 1
+    fi
+    rm -rf "${TEMP_GITOPS_DIR}"
+else
+    echo "ERROR: Failed to fetch GitHub runner manifests from GitOps repo."
+    exit 1
+fi
 
 kubectl wait --for=condition=ready pod -l app=github-runner -n github-runner --timeout=180s
 
