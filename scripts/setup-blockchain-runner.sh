@@ -4,24 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if [ ! -f "$PROJECT_ROOT/.env" ]; then
-    echo "ERROR: .env file not found"
-    echo "Please create .env file from .env.example:"
-    echo "  cp .env.example .env"
-    echo "  # Then edit .env and add your GITHUB_TOKEN"
-    exit 1
-fi
-
-source "$PROJECT_ROOT/.env"
-
-if [ -z "${GITHUB_TOKEN:-}" ]; then
-    echo "ERROR: GITHUB_TOKEN not set in .env file"
-    echo "Please set GITHUB_TOKEN in .env file"
-    exit 1
-fi
 
 command -v kubectl >/dev/null 2>&1 || { echo "kubectl is required" >&2; exit 1; }
 command -v kind >/dev/null 2>&1 || { echo "kind is required" >&2; exit 1; }
+command -v helm >/dev/null 2>&1 || { echo "helm is required" >&2; exit 1; }
 
 if [ "$(kind get clusters 2>/dev/null | wc -l)" -eq 0 ]; then
     echo "No kind cluster found. Run setup-kind-cluster-with-argoCD.sh first"
@@ -37,7 +23,7 @@ kubectl create namespace blockchain --dry-run=client -o yaml | kubectl apply -f 
 
 GITOPS_REPO="${GITOPS_REPO:-tuberlin-blockchain-prototyping/sharing-sbom-system-gitops}"
 GITOPS_BRANCH="${GITOPS_BRANCH:-main}"
-GITOPS_REPO_URL="https://${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git"
+GITOPS_REPO_URL="https://github.com/${GITOPS_REPO}.git"
 TEMP_GITOPS_DIR=$(mktemp -d)
 
 echo "Fetching blockchain manifests from GitOps repo..."
@@ -90,40 +76,111 @@ kubectl create configmap sbom-contract-config \
   -n blockchain \
   --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl create namespace github-runner --dry-run=client -o yaml | kubectl apply -f -
-sleep 2
+echo ""
+echo "Contract address: $CONTRACT_ADDRESS"
+echo "Hardhat node: http://hardhat-node.blockchain.svc.cluster.local:8545"
 
-if ! kubectl get namespace github-runner &>/dev/null; then
-    echo "Failed to create github-runner namespace"
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "ERROR: .env file not found"
+    echo "Please create .env file from .env.example:"
+    echo "  cp .env.example .env"
+    echo "  # Then edit .env and add your GitHub App credentials"
     exit 1
 fi
 
-if ! kubectl get secret github-runner-secret -n github-runner &>/dev/null; then
-    echo "Creating GitHub runner secret from .env file..."
-    kubectl create secret generic github-runner-secret \
-      --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN" \
-      -n github-runner
+source "$PROJECT_ROOT/.env"
+
+if [ -z "${ABP_ACTIONS_RUNNER_APP_ID:-}" ]; then
+    echo "ERROR: ABP_ACTIONS_RUNNER_APP_ID not set in .env file"
+    exit 1
+fi
+
+if [ -z "${ABP_ACTIONS_RUNNER_APP_INSTALLATION_ID:-}" ]; then
+    echo "ERROR: ABP_ACTIONS_RUNNER_APP_INSTALLATION_ID not set in .env file"
+    exit 1
+fi
+
+if [ -z "${PRIVATE_KEY_FILE:-}" ]; then
+    echo "ERROR: PRIVATE_KEY_FILE not set in .env file"
+    exit 1
+fi
+
+PRIVATE_KEY_PATH="$PROJECT_ROOT/$PRIVATE_KEY_FILE"
+if [ ! -f "$PRIVATE_KEY_PATH" ]; then
+    if [ -f "$PRIVATE_KEY_FILE" ]; then
+        PRIVATE_KEY_PATH="$PRIVATE_KEY_FILE"
+    else
+        echo "ERROR: Private key file not found: $PRIVATE_KEY_FILE"
+        echo "Expected at: $PROJECT_ROOT/$PRIVATE_KEY_FILE or $PRIVATE_KEY_FILE"
+        exit 1
+    fi
+fi
+
+echo ""
+echo "Setting up Actions Runner Controller..."
+
+helm repo add actions-runner-controller https://actions-runner-controller.github.io/actions-runner-controller
+helm repo update
+
+kubectl create namespace arc-systems --dry-run=client -o yaml | kubectl apply -f -
+
+if ! kubectl get secret controller-manager -n arc-systems &>/dev/null; then
+    echo "Creating controller-manager secret..."
+    kubectl create secret generic controller-manager \
+      -n arc-systems \
+      --from-literal=github_app_id="$ABP_ACTIONS_RUNNER_APP_ID" \
+      --from-literal=github_app_installation_id="$ABP_ACTIONS_RUNNER_APP_INSTALLATION_ID" \
+      --from-file=github_app_private_key="$PRIVATE_KEY_PATH"
 else
-    echo "GitHub runner secret already exists, updating..."
-    kubectl create secret generic github-runner-secret \
-      --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN" \
-      -n github-runner \
+    echo "controller-manager secret already exists, updating..."
+    kubectl create secret generic controller-manager \
+      -n arc-systems \
+      --from-literal=github_app_id="$ABP_ACTIONS_RUNNER_APP_ID" \
+      --from-literal=github_app_installation_id="$ABP_ACTIONS_RUNNER_APP_INSTALLATION_ID" \
+      --from-file=github_app_private_key="$PRIVATE_KEY_PATH" \
       --dry-run=client -o yaml | kubectl apply -f -
 fi
 
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+if ! helm list -n cert-manager | grep -q cert-manager; then
+    echo "Installing cert-manager..."
+    helm install cert-manager jetstack/cert-manager \
+      --namespace cert-manager \
+      --create-namespace \
+      --set crds.enabled=true \
+      --wait --timeout=5m
+else
+    echo "cert-manager already installed"
+fi
+
+if ! helm list -n arc-systems | grep -q arc; then
+    echo "Installing Actions Runner Controller..."
+    helm install arc \
+      actions-runner-controller/actions-runner-controller \
+      --namespace arc-systems \
+      --set authSecret.create=false \
+      --set authSecret.name=controller-manager \
+      --wait --timeout=5m
+else
+    echo "Actions Runner Controller already installed"
+fi
+
+kubectl create namespace arc-runners --dry-run=client -o yaml | kubectl apply -f -
+
 GITOPS_REPO="${GITOPS_REPO:-tuberlin-blockchain-prototyping/sharing-sbom-system-gitops}"
 GITOPS_BRANCH="${GITOPS_BRANCH:-main}"
-GITOPS_REPO_URL="https://${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git"
+GITOPS_REPO_URL="https://github.com/${GITOPS_REPO}.git"
 TEMP_GITOPS_DIR=$(mktemp -d)
 
-echo "Fetching GitHub runner manifests from GitOps repo..."
+echo "Fetching runner manifests from GitOps repo..."
 if command -v git >/dev/null 2>&1 && git clone --depth 1 --branch "${GITOPS_BRANCH}" "${GITOPS_REPO_URL}" "${TEMP_GITOPS_DIR}" 2>/dev/null; then
     GITHUB_RUNNER_DIR="${TEMP_GITOPS_DIR}/k8s/github-runner"
     if [ -d "${GITHUB_RUNNER_DIR}" ]; then
-        echo "Applying GitHub runner manifests..."
-        kubectl apply -f "${GITHUB_RUNNER_DIR}/configmap.yaml"
+        echo "Applying runner deployment and RBAC..."
+        kubectl apply -f "${GITHUB_RUNNER_DIR}/runner-deployment.yaml"
         kubectl apply -f "${GITHUB_RUNNER_DIR}/runner-rbac.yaml"
-        kubectl apply -f "${GITHUB_RUNNER_DIR}/deployment.yaml"
     else
         echo "ERROR: github-runner directory not found in GitOps repo"
         echo "Expected path: ${GITHUB_RUNNER_DIR}"
@@ -131,12 +188,11 @@ if command -v git >/dev/null 2>&1 && git clone --depth 1 --branch "${GITOPS_BRAN
     fi
     rm -rf "${TEMP_GITOPS_DIR}"
 else
-    echo "ERROR: Failed to fetch GitHub runner manifests from GitOps repo."
+    echo "ERROR: Failed to fetch runner manifests from GitOps repo."
     exit 1
 fi
 
-kubectl wait --for=condition=ready pod -l app=github-runner -n github-runner --timeout=180s
-
 echo ""
+echo "Setup complete!"
 echo "Contract address: $CONTRACT_ADDRESS"
 echo "Hardhat node: http://hardhat-node.blockchain.svc.cluster.local:8545"

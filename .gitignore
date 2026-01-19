@@ -1,3 +1,4 @@
 proving-service/target/
 data/
 .env
+*.pem
