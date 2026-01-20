@@ -2,7 +2,7 @@ name: SBOM System CI/CD
 
 on:
   push:
-    branches: [main, separate-dummy-app-and-manifest]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
