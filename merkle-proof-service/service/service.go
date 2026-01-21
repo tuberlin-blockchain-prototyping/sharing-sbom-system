@@ -65,6 +65,17 @@ func (s *SMTService) GetSMT(rootHash string) ([]byte, error) {
 	return s.storage.GetSMT(rootHash)
 }
 
+func (s *SMTService) StoreSMTIfNotExists(rootHash string, smtData json.RawMessage) (bool, error) {
+	exists, err := s.storage.ExistsSMT(rootHash)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return false, nil
+	}
+	return true, s.storage.StoreSMT(rootHash, smtData)
+}
+
 func (s *SMTService) GenerateBatchProofs(rootHash string, purls []string, compress bool, accumulatorName string) (*BatchProofResult, error) {
 	// Fetch SMT from storage
 	smtData, err := s.storage.GetSMT(rootHash)

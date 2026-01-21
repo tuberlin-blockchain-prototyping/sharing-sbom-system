@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+
 	"github.com/CycloneDX/cyclonedx-go"
 )
 
@@ -34,7 +36,17 @@ type ProveBatchResponse struct {
 	MerkleProofs []ProofOutput `json:"merkle_proofs"`
 }
 
+type StoreSMTRequest struct {
+	RootHash string          `json:"root_hash" binding:"required"`
+	SMTData  json.RawMessage `json:"smt_data" binding:"required"`
+}
+
+type StoreSMTResponse struct {
+	RootHash string `json:"root_hash"`
+	Stored   bool   `json:"stored"`
+	Message  string `json:"message"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
-

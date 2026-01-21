@@ -37,6 +37,7 @@ func main() {
 	router.GET("/health", h.Health)
 	router.GET("/smt/:root", h.GetSMT)
 	router.POST("/build", h.Build)
+	router.POST("/store-smt", h.StoreSMT)
 	router.POST("/prove-batch", h.ProveBatch)
 
 	srv := &http.Server{

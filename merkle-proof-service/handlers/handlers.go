@@ -97,3 +97,31 @@ func (h *Handler) ProveBatch(c *gin.Context) {
 	})
 }
 
+func (h *Handler) StoreSMT(c *gin.Context) {
+	var req StoreSMTRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	stored, err := h.svc.StoreSMTIfNotExists(req.RootHash, req.SMTData)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	if stored {
+		c.JSON(http.StatusCreated, StoreSMTResponse{
+			RootHash: req.RootHash,
+			Stored:   true,
+			Message:  "SMT stored successfully",
+		})
+	} else {
+		c.JSON(http.StatusOK, StoreSMTResponse{
+			RootHash: req.RootHash,
+			Stored:   false,
+			Message:  "SMT already exists for this root hash",
+		})
+	}
+}
+

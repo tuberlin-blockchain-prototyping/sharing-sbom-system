@@ -56,6 +56,17 @@ func (s *Storage) GetSMT(rootHash string) (json.RawMessage, error) {
 	return json.RawMessage(data), err
 }
 
+func (s *Storage) ExistsSMT(rootHash string) (bool, error) {
+	exists := false
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(bucketName)
+		v := b.Get([]byte(rootHash))
+		exists = v != nil
+		return nil
+	})
+	return exists, err
+}
+
 
 
 
