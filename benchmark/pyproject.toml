@@ -1,9 +1,0 @@
-[project]
-name = "benchmark-proving-service"
-version = "0.1.0"
-description = "Benchmark tool for proving service"
-requires-python = ">=3.10"
-dependencies = ["httpx>=0.25.0", "click>=8.1.0"]
-
-[project.scripts]
-benchmark = "benchmark:main"

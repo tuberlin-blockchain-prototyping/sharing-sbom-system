@@ -1,8 +1,8 @@
 services:
   proving-service:
     build:
-      context: .
-      dockerfile: Dockerfile.cuda
+      context: ..
+      dockerfile: ./proving-service/Dockerfile
     ports:
       - "8080:8080"
     environment:
@@ -11,14 +11,7 @@ services:
       - PROOFS_DIR=/app/proofs
     volumes:
       - ./proofs:/app/proofs
-    container_name: proving-service
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+    container_name: proving-service-cpu
 
   benchmark:
     build:
@@ -30,7 +23,6 @@ services:
     volumes:
       - ./benchmark/data:/benchmark/data
       - ./benchmark/benchmark.py:/app/benchmark.py:ro
-    container_name: proving-benchmark
+    container_name: proving-benchmark-cpu
     depends_on:
       - proving-service
-

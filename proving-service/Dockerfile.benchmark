@@ -1,0 +1,34 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy benchmark files
+COPY benchmark/pyproject.toml /app/
+COPY benchmark/benchmark.py /app/
+
+# Install dependencies
+RUN uv sync
+
+# Set environment variables
+ENV PROVING_SERVICE_URL=http://proving-service:8080
+ENV PYTHONUNBUFFERED=1
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
+
+# Create volume mount point
+VOLUME /benchmark/data
