@@ -2,18 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-
-	"github.com/CycloneDX/cyclonedx-go"
 )
-
-type BuildRequest struct {
-	cyclonedx.BOM
-}
-
-type BuildResponse struct {
-	Root  string `json:"root"`
-	Depth int    `json:"depth"`
-}
 
 type ProveBatchRequest struct {
 	Root        string   `json:"root" binding:"required"`

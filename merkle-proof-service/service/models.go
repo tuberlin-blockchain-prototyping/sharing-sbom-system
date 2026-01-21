@@ -1,10 +1,5 @@
 package service
 
-type BuildResult struct {
-	Root  string
-	Depth int
-}
-
 type ProofResult struct {
 	Purl      string
 	Value     string

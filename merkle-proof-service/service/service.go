@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log"
-
-	"github.com/CycloneDX/cyclonedx-go"
 )
 
 type SMTService struct {
@@ -15,50 +13,6 @@ type SMTService struct {
 
 func NewSMTService(storage *Storage) *SMTService {
 	return &SMTService{storage: storage}
-}
-
-func (s *SMTService) BuildSMT(bom *cyclonedx.BOM, extractorName, accumulatorName string) (*BuildResult, error) {
-	ex, err := getExtractor(extractorName)
-	if err != nil {
-		return nil, err
-	}
-
-	items, err := ex.Extract(bom)
-	if err != nil {
-		return nil, err
-	}
-
-	acc, err := getAccumulator(accumulatorName)
-	if err != nil {
-		return nil, err
-	}
-
-	root, err := acc.Build(items)
-	if err != nil {
-		return nil, err
-	}
-
-	accData, err := json.Marshal(acc)
-	if err != nil {
-		return nil, err
-	}
-
-	var meta struct {
-		Depth int `json:"depth"`
-	}
-	json.Unmarshal(accData, &meta)
-
-	rootHash := hex.EncodeToString(root)
-
-	// Store SMT in database
-	if err := s.storage.StoreSMT(rootHash, json.RawMessage(accData)); err != nil {
-		return nil, err
-	}
-
-	return &BuildResult{
-		Root:  rootHash,
-		Depth: meta.Depth,
-	}, nil
 }
 
 func (s *SMTService) GetSMT(rootHash string) ([]byte, error) {

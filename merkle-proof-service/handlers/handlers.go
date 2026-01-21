@@ -5,7 +5,6 @@ import (
 
 	"merkle-proof-service/service"
 
-	"github.com/CycloneDX/cyclonedx-go"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,25 +18,6 @@ func NewHandler(svc *service.SMTService) *Handler {
 
 func (h *Handler) Health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-
-func (h *Handler) Build(c *gin.Context) {
-	var bom cyclonedx.BOM
-	if err := c.ShouldBindJSON(&bom); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	result, err := h.svc.BuildSMT(&bom, "dependency", "smt")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, BuildResponse{
-		Root:  result.Root,
-		Depth: result.Depth,
-	})
 }
 
 func (h *Handler) GetSMT(c *gin.Context) {
