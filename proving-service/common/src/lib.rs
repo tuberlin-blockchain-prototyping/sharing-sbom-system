@@ -5,6 +5,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+use risc0_zkvm::guest::sha::Impl as Sha256Impl;
+#[cfg(not(feature = "std"))]
+use risc0_zkvm::guest::sha::rust_crypto::Sha256;
+#[cfg(not(feature = "std"))]
+use sha2::Digest;
+
+#[cfg(feature = "std")]
 use sha2::{Digest, Sha256};
 
 /// Hash a value (as a decimal string) to create a leaf hash.
@@ -19,14 +27,22 @@ pub fn hash_value(value: &str) -> [u8; 32] {
         padded_bytes[32 - val_bytes.len()..].copy_from_slice(&val_bytes);
     }
 
+    #[cfg(not(feature = "std"))]
+    let mut hasher = Sha256::<Sha256Impl>::new();
+    #[cfg(feature = "std")]
     let mut hasher = Sha256::new();
+
     hasher.update(&padded_bytes);
     hasher.finalize().into()
 }
 
 /// Hash two 32-byte values together
 pub fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    #[cfg(not(feature = "std"))]
+    let mut hasher = Sha256::<Sha256Impl>::new();
+    #[cfg(feature = "std")]
     let mut hasher = Sha256::new();
+
     hasher.update(left);
     hasher.update(right);
     hasher.finalize().into()
@@ -34,7 +50,11 @@ pub fn hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
 
 /// Compute the 32-byte hash of a purl (used as the path in the SMT)
 pub fn compute_purl_hash(purl: &str) -> [u8; 32] {
+    #[cfg(not(feature = "std"))]
+    let mut hasher = Sha256::<Sha256Impl>::new();
+    #[cfg(feature = "std")]
     let mut hasher = Sha256::new();
+
     hasher.update(purl.as_bytes());
     hasher.finalize().into()
 }

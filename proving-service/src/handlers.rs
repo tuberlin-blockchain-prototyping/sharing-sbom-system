@@ -124,14 +124,16 @@ pub async fn prove_merkle_compact(
 
     let prove_start = Instant::now();
     let prover = default_prover();
-    let receipt = prover
+    let prove_info = prover
         .prove(env, SBOM_VALIDATOR_ELF)
         .map_err(|e| {
             let err_msg = format!("Proof generation failed during RISC0 execution: {}. This may indicate an issue with the proof computation or executor environment", e);
             tracing::error!("{}", err_msg);
             actix_web::error::ErrorInternalServerError(err_msg)
-        })?
-        .receipt;
+        })?;
+
+    let receipt = prove_info.receipt;
+    let stats = prove_info.stats;
 
     let output: MerklePublicOutputs = receipt
         .journal
@@ -176,9 +178,10 @@ pub async fn prove_merkle_compact(
 
     let journal_size = receipt.journal.bytes.len();
     let proof_size = receipt_bytes.len();
-    
-    let segments_count: Option<usize> = None;
-    let total_cycles: Option<u64> = None;
+
+    // Extract cycle and segment information from SessionStats
+    let segments_count: Option<usize> = receipt.inner.composite().ok().map(|c| c.segments.len());
+    let total_cycles: Option<u64> = Some(stats.total_cycles);
 
     tracing::info!(
         "Proof generation completed: generation_time={:.2}s, verification_time={:.2}s, total_request_time={:.2}s, receipt_size={} bytes, journal_size={} bytes",
