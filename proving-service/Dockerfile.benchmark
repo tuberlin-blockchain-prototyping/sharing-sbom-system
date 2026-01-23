@@ -24,8 +24,8 @@ RUN uv sync
 ENV PROVING_SERVICE_URL=http://proving-service:8080
 ENV PYTHONUNBUFFERED=1
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && \
+# Create non-root user (need UID 1001 to match my user)
+RUN useradd -m -u 1001 appuser && \
     chown -R appuser:appuser /app
 
 USER appuser
