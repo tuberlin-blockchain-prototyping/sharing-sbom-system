@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct VerifyProofRequest {
-    pub timestamp: u64,
     pub root_hash: String,
     pub banned_list_hash: String,
     pub compliant: bool,
@@ -32,16 +31,12 @@ impl VerifyProofRequest {
         if self.banned_list_hash.is_empty() {
             return Err("Banned list hash cannot be empty".to_string());
         }
-        if self.timestamp == 0 {
-            return Err("Timestamp cannot be zero".to_string());
-        }
         Ok(())
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MerklePublicOutputs {
-    pub timestamp: u64,
     pub root_hash: [u8; 32],
     pub banned_list_hash: [u8; 32],
     pub compliant: bool,
@@ -50,8 +45,6 @@ pub struct MerklePublicOutputs {
 #[derive(Serialize, Debug)]
 pub struct VerifyProofResponse {
     pub proof_verified: bool,
-    #[serde(rename = "timestamp_proof_created_at")]
-    pub timestamp: u64,
     pub root_hash: String,
     pub banned_list_hash: String,
     pub compliant: bool,

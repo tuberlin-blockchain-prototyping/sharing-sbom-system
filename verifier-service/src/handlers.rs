@@ -56,14 +56,6 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
         .into());
     }
 
-    if req.timestamp != outputs.timestamp {
-        return Err(Error::VerificationFailed(format!(
-            "Timestamp mismatch: request has {}, proof contains {}",
-            req.timestamp, outputs.timestamp
-        ))
-        .into());
-    }
-
     tracing::info!("Proof verified: compliant={}", outputs.compliant);
 
     let response = VerifyProofResponse {
@@ -72,7 +64,6 @@ pub async fn verify(req: web::Json<VerifyProofRequest>) -> ActixResult<HttpRespo
         banned_list_hash: decoded_banned_hash,
         compliant: outputs.compliant,
         image_id: req.image_id.clone(),
-        timestamp: outputs.timestamp,
         generation_duration_ms: req.generation_duration_ms,
     };
 
