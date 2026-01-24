@@ -137,23 +137,10 @@ class ProofService:
         else:
             logger.info(f"Proof generation completed: tx_hash={tx_hash}")
 
-        proving_metrics = {
-            "generation_duration_ms": proving_response.get("generation_duration_ms"),
-            "verification_duration_ms": proving_response.get("verification_duration_ms"),
-            "total_request_duration_ms": proving_response.get("total_request_duration_ms"),
-            "proof_size_bytes": proving_response.get("proof_size_bytes"),
-            "journal_size_bytes": proving_response.get("journal_size_bytes"),
-            "segments_count": proving_response.get("segments_count"),
-            "total_cycles": proving_response.get("total_cycles"),
-            "merkle_proofs_count": proving_response.get("merkle_proofs_count"),
-            "input_data_size_bytes": proving_response.get("input_data_size_bytes"),
-        }
-
         return {
             "ipfs_cid": ipfs_cid,
             "tx_hash": tx_hash,
             "compliance_status": compliant,
             "root_hash": proof_root_hash,
             "composite_hash": composite_hash,
-            "proving_service_metrics": proving_metrics,
         }

@@ -22,7 +22,6 @@ struct MerklePublicInputs {
 
 #[derive(Serialize, Deserialize)]
 struct MerklePublicOutputs {
-    timestamp: u64,
     root_hash: [u8; 32],
     banned_list_hash: [u8; 32],
     compliant: bool,
@@ -31,7 +30,6 @@ struct MerklePublicOutputs {
 fn main() {
     let proofs_json: String = env::read();
     let public_inputs: MerklePublicInputs = env::read();
-    let timestamp: u64 = env::read();
 
     let proofs: Vec<CompactMerkleProof> = match serde_json::from_str(&proofs_json) {
         Ok(p) => p,
@@ -42,7 +40,6 @@ fn main() {
                 &public_inputs.root_hash,
                 &banned_list_hash,
                 false,
-                timestamp,
             );
             return;
         }
@@ -57,7 +54,6 @@ fn main() {
         &public_inputs.root_hash,
         &banned_list_hash,
         compliant,
-        timestamp,
     );
 }
 
@@ -142,12 +138,10 @@ fn commit_result(
     root_hash: &[u8; 32],
     banned_list_hash: &[u8; 32],
     compliant: bool,
-    timestamp: u64,
 ) {
     env::commit(&MerklePublicOutputs {
         root_hash: *root_hash,
         banned_list_hash: *banned_list_hash,
         compliant,
-        timestamp,
     });
 }

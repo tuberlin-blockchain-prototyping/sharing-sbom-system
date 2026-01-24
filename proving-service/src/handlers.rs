@@ -2,7 +2,6 @@ use actix_web::{HttpResponse, Result as ActixResult, web};
 use base64::{Engine as _, engine::general_purpose};
 use methods::{SBOM_VALIDATOR_ELF, SBOM_VALIDATOR_ID};
 use risc0_zkvm::{ExecutorEnv, default_prover, serde::to_vec};
-use std::time::Instant;
 
 use crate::config::Config;
 use crate::models::{MerklePublicInputs, MerklePublicOutputs, ProveCompactMerkleRequest};
@@ -16,7 +15,6 @@ pub async fn prove_merkle_compact(
     req: web::Json<ProveCompactMerkleRequest>,
     config: web::Data<Config>,
 ) -> ActixResult<HttpResponse> {
-    let start_time = Instant::now();
     tracing::info!(
         "Received compact merkle prove request with depth={}, root={}, proof_count={}",
         req.depth,
@@ -75,20 +73,10 @@ pub async fn prove_merkle_compact(
             actix_web::error::ErrorBadRequest(err_msg)
         })?;
 
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| {
-            let err_msg = format!("System time error: failed to get current timestamp: {}. This indicates a system clock issue", e);
-            tracing::error!("{}", err_msg);
-            actix_web::error::ErrorInternalServerError(err_msg)
-        })?
-        .as_secs();
-
     tracing::info!(
-        "Preparing executor environment: processing {} compact non-membership proofs for root: {} (timestamp: {})",
+        "Preparing executor environment: processing {} compact non-membership proofs for root: {}",
         req.merkle_proofs.len(),
-        req.root,
-        timestamp
+        req.root
     );
 
     let env = ExecutorEnv::builder()
@@ -104,12 +92,6 @@ pub async fn prove_merkle_compact(
             tracing::error!("{}", err_msg);
             actix_web::error::ErrorInternalServerError(err_msg)
         })?
-        .write(&timestamp)
-        .map_err(|e| {
-            let err_msg = format!("Failed to write timestamp to executor environment: {}. Timestamp value: {}", e, timestamp);
-            tracing::error!("{}", err_msg);
-            actix_web::error::ErrorInternalServerError(err_msg)
-        })?
         .build()
         .map_err(|e| {
             let err_msg = format!("Failed to build executor environment: {}. This may indicate memory or configuration issues", e);
@@ -122,7 +104,6 @@ pub async fn prove_merkle_compact(
         req.root
     );
 
-    let prove_start = Instant::now();
     let prover = default_prover();
     let prove_info = prover
         .prove(env, SBOM_VALIDATOR_ELF)
@@ -133,7 +114,6 @@ pub async fn prove_merkle_compact(
         })?;
 
     let receipt = prove_info.receipt;
-    let stats = prove_info.stats;
 
     let output: MerklePublicOutputs = receipt
         .journal
@@ -151,7 +131,6 @@ pub async fn prove_merkle_compact(
         hex::encode(output.banned_list_hash)
     );
 
-    let verify_start = Instant::now();
     receipt
         .verify(SBOM_VALIDATOR_ID)
         .map_err(|e| {
@@ -159,7 +138,6 @@ pub async fn prove_merkle_compact(
             tracing::error!("{}", err_msg);
             actix_web::error::ErrorInternalServerError(err_msg)
         })?;
-    let verification_duration = verify_start.elapsed();
 
     tracing::info!("Receipt verification successful");
 
@@ -173,35 +151,19 @@ pub async fn prove_merkle_compact(
         .flat_map(|&x| x.to_le_bytes())
         .collect();
 
-    let generation_duration = prove_start.elapsed();
-    let total_duration = start_time.elapsed();
-
-    let journal_size = receipt.journal.bytes.len();
-    let proof_size = receipt_bytes.len();
-
-    // Extract cycle and segment information from SessionStats
-    let segments_count: Option<usize> = receipt.inner.composite().ok().map(|c| c.segments.len());
-    let total_cycles: Option<u64> = Some(stats.total_cycles);
-
     tracing::info!(
-        "Proof generation completed: generation_time={:.2}s, verification_time={:.2}s, total_request_time={:.2}s, receipt_size={} bytes, journal_size={} bytes",
-        generation_duration.as_secs_f64(),
-        verification_duration.as_secs_f64(),
-        total_duration.as_secs_f64(),
-        proof_size,
-        journal_size
+        "Proof generation completed: receipt_size={} bytes",
+        receipt_bytes.len()
     );
 
     let proof_base64 = general_purpose::STANDARD.encode(&receipt_bytes);
 
     let proof_data = serde_json::json!({
-        "timestamp": output.timestamp,
-        "root_hash": hex::encode(output.root_hash),
         "banned_list_hash": hex::encode(output.banned_list_hash),
         "compliant": output.compliant,
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
         "proof": proof_base64,
-        "generation_duration_ms": generation_duration.as_millis(),
+        "root_hash": hex::encode(output.root_hash),
     });
 
     tracing::info!(
@@ -217,7 +179,11 @@ pub async fn prove_merkle_compact(
         tracing::warn!("{}", err_msg);
     }
 
-    let filename = format!("proof_{}.json", output.timestamp);
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let filename = format!("proof_{}.json", timestamp);
     let filepath = config.proofs_dir.join(&filename);
 
     match serde_json::to_string_pretty(&proof_data) {
@@ -247,21 +213,11 @@ pub async fn prove_merkle_compact(
     }
 
     let response = serde_json::json!({
-        "timestamp": output.timestamp,
-        "root_hash": hex::encode(output.root_hash),
         "banned_list_hash": hex::encode(output.banned_list_hash),
         "compliant": output.compliant,
         "image_id": SBOM_VALIDATOR_ID.iter().map(|&x| x.to_string()).collect::<Vec<_>>(),
         "proof": proof_base64,
-        "generation_duration_ms": generation_duration.as_millis(),
-        "verification_duration_ms": verification_duration.as_millis(),
-        "total_request_duration_ms": total_duration.as_millis(),
-        "proof_size_bytes": proof_size,
-        "journal_size_bytes": journal_size,
-        "segments_count": segments_count,
-        "total_cycles": total_cycles,
-        "merkle_proofs_count": req.merkle_proofs.len(),
-        "input_data_size_bytes": proofs_json.len(),
+        "root_hash": hex::encode(output.root_hash),
     });
 
     tracing::info!("Request completed successfully. Returning proof response");
