@@ -1,0 +1,433 @@
+{
+  "timestamp": "20260121_170853",
+  "num_runs": 10,
+  "proof_counts": [
+    2,
+    5,
+    10,
+    20,
+    50,
+    100,
+    150,
+    200
+  ],
+  "total_files_per_run": 8,
+  "successful": 7,
+  "failed": 1,
+  "total_time_seconds": 3495.905591726303,
+  "results": [
+    {
+      "file": "batch_proof_2.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 2315,
+        "max": 2363,
+        "mean": 2350.4,
+        "values": [
+          2352,
+          2363,
+          2356,
+          2358,
+          2361,
+          2362,
+          2356,
+          2315,
+          2342,
+          2339
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 23,
+        "max": 23,
+        "mean": 23.0,
+        "values": [
+          23,
+          23,
+          23,
+          23,
+          23,
+          23,
+          23,
+          23,
+          23,
+          23
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 283556,
+        "max": 283556,
+        "mean": 283556.0,
+        "values": [
+          283556,
+          283556,
+          283556,
+          283556,
+          283556,
+          283556,
+          283556,
+          283556,
+          283556,
+          283556
+        ]
+      }
+    },
+    {
+      "file": "batch_proof_5.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 4736,
+        "max": 4810,
+        "mean": 4788.5,
+        "values": [
+          4772,
+          4784,
+          4804,
+          4802,
+          4805,
+          4810,
+          4736,
+          4785,
+          4799,
+          4788
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 46,
+        "max": 46,
+        "mean": 46.0,
+        "values": [
+          46,
+          46,
+          46,
+          46,
+          46,
+          46,
+          46,
+          46,
+          46,
+          46
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 564868,
+        "max": 564868,
+        "mean": 564868.0,
+        "values": [
+          564868,
+          564868,
+          564868,
+          564868,
+          564868,
+          564868,
+          564868,
+          564868,
+          564868,
+          564868
+        ]
+      }
+    },
+    {
+      "file": "batch_proof_10.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 9391,
+        "max": 9508,
+        "mean": 9449.5,
+        "values": [
+          9476,
+          9493,
+          9481,
+          9491,
+          9508,
+          9439,
+          9391,
+          9422,
+          9391,
+          9403
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 92,
+        "max": 92,
+        "mean": 92.0,
+        "values": [
+          92,
+          92,
+          92,
+          92,
+          92,
+          92,
+          92,
+          92,
+          92,
+          92
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 1127492,
+        "max": 1127492,
+        "mean": 1127492.0,
+        "values": [
+          1127492,
+          1127492,
+          1127492,
+          1127492,
+          1127492,
+          1127492,
+          1127492,
+          1127492,
+          1127492,
+          1127492
+        ]
+      }
+    },
+    {
+      "file": "batch_proof_20.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 18679,
+        "max": 18836,
+        "mean": 18744.1,
+        "values": [
+          18741,
+          18718,
+          18717,
+          18738,
+          18744,
+          18836,
+          18763,
+          18744,
+          18679,
+          18761
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 184,
+        "max": 184,
+        "mean": 184.0,
+        "values": [
+          184,
+          184,
+          184,
+          184,
+          184,
+          184,
+          184,
+          184,
+          184,
+          184
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 2252740,
+        "max": 2252740,
+        "mean": 2252740.0,
+        "values": [
+          2252740,
+          2252740,
+          2252740,
+          2252740,
+          2252740,
+          2252740,
+          2252740,
+          2252740,
+          2252740,
+          2252740
+        ]
+      }
+    },
+    {
+      "file": "batch_proof_50.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 44691,
+        "max": 44806,
+        "mean": 44740.3,
+        "values": [
+          44762,
+          44726,
+          44733,
+          44716,
+          44691,
+          44788,
+          44757,
+          44704,
+          44806,
+          44720
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 437,
+        "max": 438,
+        "mean": 437.1,
+        "values": [
+          437,
+          438,
+          437,
+          437,
+          437,
+          437,
+          437,
+          437,
+          437,
+          437
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 5347172,
+        "max": 5347172,
+        "mean": 5347172.0,
+        "values": [
+          5347172,
+          5347172,
+          5347172,
+          5347172,
+          5347172,
+          5347172,
+          5347172,
+          5347172,
+          5347172,
+          5347172
+        ]
+      }
+    },
+    {
+      "file": "batch_proof_100.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 89307,
+        "max": 90328,
+        "mean": 89941.9,
+        "values": [
+          89622,
+          89482,
+          90214,
+          90302,
+          90263,
+          89523,
+          90173,
+          89307,
+          90205,
+          90328
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 874,
+        "max": 874,
+        "mean": 874.0,
+        "values": [
+          874,
+          874,
+          874,
+          874,
+          874,
+          874,
+          874,
+          874,
+          874,
+          874
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 10692100,
+        "max": 10692100,
+        "mean": 10692100.0,
+        "values": [
+          10692100,
+          10692100,
+          10692100,
+          10692100,
+          10692100,
+          10692100,
+          10692100,
+          10692100,
+          10692100,
+          10692100
+        ]
+      }
+    },
+    {
+      "file": "batch_proof_150.json",
+      "success": false,
+      "runs": 10,
+      "successful_runs": 0,
+      "failed_runs": 10
+    },
+    {
+      "file": "batch_proof_200.json",
+      "success": true,
+      "runs": 10,
+      "successful_runs": 10,
+      "failed_runs": 0,
+      "generation_duration_ms": {
+        "min": 177541,
+        "max": 179917,
+        "mean": 178862.0,
+        "values": [
+          178462,
+          179763,
+          179711,
+          179808,
+          178439,
+          177634,
+          179917,
+          178944,
+          177541,
+          178401
+        ]
+      },
+      "verification_duration_ms": {
+        "min": 1745,
+        "max": 1754,
+        "mean": 1746.2,
+        "values": [
+          1745,
+          1745,
+          1754,
+          1746,
+          1746,
+          1745,
+          1745,
+          1745,
+          1746,
+          1745
+        ]
+      },
+      "proof_size_bytes": {
+        "min": 21356484,
+        "max": 21356484,
+        "mean": 21356484.0,
+        "values": [
+          21356484,
+          21356484,
+          21356484,
+          21356484,
+          21356484,
+          21356484,
+          21356484,
+          21356484,
+          21356484,
+          21356484
+        ]
+      }
+    }
+  ]
+}
