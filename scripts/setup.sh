@@ -8,7 +8,7 @@ if [ ! -f "$SCRIPT_DIR/../.env" ]; then
     echo "ERROR: .env file not found"
     echo "Please create .env file from .env.example:"
     echo "  cp .env.example .env"
-    echo "  # Then edit .env and add your GITHUB_TOKEN"
+    echo "  # Then edit .env"
     exit 1
 fi
 
