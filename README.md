@@ -74,7 +74,6 @@ Fill in your GitHub credentials:
 ABP_ACTIONS_RUNNER_APP_ID=<your-github-app-id>
 ABP_ACTIONS_RUNNER_APP_INSTALLATION_ID=<your-github-app-installation-id>
 PRIVATE_KEY_FILE=<path-to-private-key.pem>
-GITHUB_TOKEN=<your-github-token>
 ```
 
 ### 3. Run Setup
