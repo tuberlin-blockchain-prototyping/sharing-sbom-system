@@ -14,12 +14,6 @@ fi
 
 source "$SCRIPT_DIR/../.env"
 
-if [ -z "${GITHUB_TOKEN:-}" ]; then
-    echo "ERROR: GITHUB_TOKEN not set in .env file"
-    echo "Please set GITHUB_TOKEN in .env file"
-    exit 1
-fi
-
 echo "=== Step 1: Setting up Kind cluster with ArgoCD ==="
 "$SCRIPT_DIR/setup-kind-cluster-with-argoCD.sh"
 
