@@ -2,6 +2,8 @@
 
 A blockchain-anchored system for privacy-preserving SBOM verification using zero-knowledge proofs.
 
+**📚 [Full Documentation](https://tuberlin-blockchain-prototyping.github.io/trustbom-docs/docs/)**
+
 ## Overview
 
 TrustBOM resolves the tension between software supply chain transparency and intellectual property protection. Software vendors can cryptographically prove the absence of banned dependencies (vulnerable components, restricted licenses) without revealing their complete Software Bill of Materials (SBOM).
